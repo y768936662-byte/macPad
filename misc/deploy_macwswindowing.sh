@@ -43,13 +43,18 @@ gmake -C "$BUILD_DIR" clean all \
 }
 
 dyld_info -arch arm64e -fixups "$BUILT" > "$FIXUPS"
-cf_count=$(awk '$2 == "__cfstring" && $4 == "auth-bind" && /key=DA/ { count++ } END { print count+0 }' "$FIXUPS")
-plain_cf_count=$(awk '$2 == "__cfstring" && $4 == "bind" { count++ } END { print count+0 }' "$FIXUPS")
-if [ "$cf_count" -lt 1 ] || [ "$plain_cf_count" -ne 0 ]; then
-    echo "Error: Apple-ld64 auth-fixup invariant failed (auth=$cf_count plain=$plain_cf_count)." >&2
+# dyld_info -fixups 把认证位写在行尾括号里（ad=1 key=DA），第 4 字段只有
+# bind / rebase，并不存在字面量 "auth-bind"。按括号内容判定，否则恒误报。
+cf_bind=$(awk '$2 == "__cfstring" && $4 == "bind" { count++ } END { print count+0 }' "$FIXUPS")
+cf_count=$(awk '$2 == "__cfstring" && $4 == "bind" && /ad=1/ && /key=DA/ { count++ } END { print count+0 }' "$FIXUPS")
+ag_bind=$(awk '$2 == "__auth_got" && $4 == "bind" { count++ } END { print count+0 }' "$FIXUPS")
+ag_auth=$(awk '$2 == "__auth_got" && $4 == "bind" && /ad=1/ { count++ } END { print count+0 }' "$FIXUPS")
+if [ "$cf_bind" -lt 1 ] || [ "$cf_count" -ne "$cf_bind" ] || \
+   [ "$ag_bind" -lt 1 ] || [ "$ag_auth" -ne "$ag_bind" ]; then
+    echo "Error: Apple-ld64 auth-fixup invariant failed (__cfstring bind=$cf_bind auth=$cf_count; __auth_got bind=$ag_bind auth=$ag_auth)." >&2
     exit 1
 fi
-echo "==> Verified arm64e __cfstring fixups: auth-bind/key=DA count=$cf_count, plain-bind count=0"
+echo "==> Verified arm64e chained fixups: __cfstring bind=$cf_bind all ad=1/key=DA; __auth_got bind=$ag_bind all ad=1"
 python3 "$SCRIPT_DIR/macws_artifact_contract.py" create \
     --root "$PROJECT_DIR" --binary "$BUILT" --manifest "$BUILD_MANIFEST" \
     --source-snapshot "$SOURCE_SNAPSHOT"

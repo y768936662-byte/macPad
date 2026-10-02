@@ -89,23 +89,42 @@ dyld_info -arch arm64e -fixups "$BUILT" > "$FIXUPS" 2>&1 || true
 cp "$FIXUPS" "$DIST/MacWSWindowing.fixups.txt"
 echo "    fixups 行数: $(wc -l < "$FIXUPS" | tr -d ' ')  -> dist/MacWSWindowing.fixups.txt"
 
-cf=$(awk '$2 == "__cfstring" && $4 == "auth-bind" { c++ } END { print c+0 }' "$FIXUPS")
-plain=$(awk '$2 == "__cfstring" && $4 == "bind" { c++ } END { print c+0 }' "$FIXUPS")
-anycf=$(grep -c "__cfstring" "$FIXUPS" || true)
-echo "    __cfstring 行: 总计=$anycf  auth-bind=$cf  plain-bind=$plain"
+# dyld_info -fixups 的真实列格式（macOS 14 / Xcode 15 实测）：
+#     seg          sect        addr      type   target (div=0x… ad=1 key=DA)
+#     __DATA_CONST __cfstring 0x0184C8  bind   CoreFoundation/___CFConstantStringClassReference (div=… ad=1 key=DA)
+# 第 4 字段只有 bind / rebase，认证信息写在**行尾括号**里。
+# 早期版本按 $4 == "auth-bind" 匹配，该字面量并不存在 → 恒为 0，
+# 把一次完全合格的构建误判成失败（Run #1 的假失败）。
+#
+# 只对带认证语义的段做强校验，其余段的普通 bind（如 __got 里的
+# _CGRectZero / __NSConcreteStackBlock，__objc_classrefs 里的
+# _OBJC_CLASS_$_NSString）是 ld64 的正常输出，不能当失败。
+n_bind=$(awk '$4 == "bind" { c++ } END { print c+0 }' "$FIXUPS")
+n_rebase=$(awk '$4 == "rebase" { c++ } END { print c+0 }' "$FIXUPS")
+cf_bind=$(awk '$2 == "__cfstring" && $4 == "bind" { c++ } END { print c+0 }' "$FIXUPS")
+cf_auth=$(awk '$2 == "__cfstring" && $4 == "bind" && /ad=1/ && /key=DA/ { c++ } END { print c+0 }' "$FIXUPS")
+cf_plain=$(awk '$2 == "__cfstring" && $4 == "bind" && !/ad=1/ { c++ } END { print c+0 }' "$FIXUPS")
+ag_bind=$(awk '$2 == "__auth_got" && $4 == "bind" { c++ } END { print c+0 }' "$FIXUPS")
+ag_auth=$(awk '$2 == "__auth_got" && $4 == "bind" && /ad=1/ { c++ } END { print c+0 }' "$FIXUPS")
+other_plain=$(awk '$4 == "bind" && !/ad=1/ && $2 != "__cfstring" && $2 != "__auth_got" { c++ } END { print c+0 }' "$FIXUPS")
+echo "    fixups 条目: bind=$n_bind rebase=$n_rebase"
+echo "    __cfstring: bind=$cf_bind  ad=1/key=DA=$cf_auth  未认证=$cf_plain"
+echo "    __auth_got: bind=$ag_bind  ad=1=$ag_auth"
+echo "    其他段普通 bind（正常）: $other_plain"
 
-if [ "$cf" -ge 1 ] && [ "$plain" -eq 0 ]; then
-    echo "    ✅ auth-fixup 不变量通过"
-elif [ "$cf" -eq 0 ] && [ "$plain" -eq 0 ]; then
-    echo "    ⚠️  WARN: 未能从 dyld_info 输出中解析出 __cfstring 的 bind 分类"
-    echo "        （列格式假设为 \$1=seg \$2=sect \$3=? \$4=type，可能不匹配）"
-    echo "        → 跳过硬校验，但已把原始输出存为 dist/MacWSWindowing.fixups.txt"
+if [ "$n_bind" -eq 0 ] && [ "$n_rebase" -eq 0 ]; then
+    echo "    ⚠️  WARN: dyld_info 输出一个条目都没解析出来，格式可能与预期不同"
+    echo "        → 跳过硬校验；原始输出已存为 dist/MacWSWindowing.fixups.txt"
     echo "        → 请在 iPad 侧用 misc/macws_artifact_contract.py verify 复核"
+elif [ "$cf_bind" -ge 1 ] && [ "$cf_auth" -eq "$cf_bind" ] && \
+     [ "$ag_bind" -ge 1 ] && [ "$ag_auth" -eq "$ag_bind" ]; then
+    echo "    ✅ auth-fixup 不变量通过：__cfstring / __auth_got 全部为认证指针"
 else
     echo "ERROR: Apple-ld64 auth-fixup 不变量未通过。" >&2
-    echo "       __cfstring: auth-bind=$cf plain-bind=$plain" >&2
+    echo "       __cfstring bind=$cf_bind 已认证=$cf_auth 未认证=$cf_plain" >&2
+    echo "       __auth_got bind=$ag_bind 已认证=$ag_auth" >&2
     echo "       这意味着产出的 dylib 无法安全注入 SpringBoard。" >&2
-    sed -n '1,80p' "$FIXUPS" >&2
+    sed -n '1,40p' "$FIXUPS" >&2
     exit 1
 fi
 
