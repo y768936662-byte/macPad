@@ -62,9 +62,34 @@ jobs:
           mkdir -p "$THEOS/sdks"
           cp -R "$RUNNER_TEMP"/sdks/*.sdk "$THEOS/sdks/" 2>/dev/null || true
 
-          echo "--- Theos SDKs ---"
+          echo "--- 安装到的 iPhoneOS SDK ---"
+          ls -1 "$THEOS/sdks" | grep -i '^iPhoneOS' || true
+
+          # 上游 macPad 只在 iPhoneOS16.5.sdk 下验证通过。
+          # 根 Makefile 是 `TARGET := iphone:clang:latest:14.0`，一旦 theos/sdks
+          # 里存在 17.x，`latest` 就会选中它 —— 而 iPhoneOS17.x 自带 xpc/xpc.h，
+          # 会让 MTLCompilerBypassOSCheck/Tweak.x:21 的
+          #     extern void *xpc_data_create(const void *bytes, size_t length);
+          # 与 SDK 的 `xpc_object_t xpc_data_create(...)` 冲突
+          # （error: conflicting types），并连带 848 / 893 行报
+          # "implicit conversion of 'xpc_object_t' to 'void *' requires a bridged cast"，
+          # 使该组件编译失败。
+          # 该组件承载 iPadOS 16.5.1 的 UUID / 偏移 / 指令签名适配（见
+          # macPad-port/12_Phase2_UUID重算与补丁.md），缺了它 GPU 着色器编译
+          # 这一路不成立，因此这里强制钉死 SDK 版本，不允许被 latest 漂移。
+          if [ ! -d "$THEOS/sdks/iPhoneOS16.5.sdk" ]; then
+            echo "ERROR: 缺少上游验证版本 iPhoneOS16.5.sdk" >&2
+            exit 1
+          fi
+          for d in "$THEOS"/sdks/iPhoneOS*.sdk; do
+            [ -d "$d" ] || continue
+            [ "$(basename "$d")" = "iPhoneOS16.5.sdk" ] && continue
+            echo "移除 $(basename "$d")（只保留上游验证过的 iPhoneOS16.5.sdk）"
+            rm -rf "$d"
+          done
+
+          echo "--- 最终 Theos SDKs ---"
           ls "$THEOS/sdks"
-          ls -1 "$THEOS/sdks" | grep -i '^iPhoneOS' || { echo "ERROR: 没有 iPhoneOS SDK" >&2; exit 1; }
 
       - name: 构建
         run: bash ci/macpad_ci_build.sh

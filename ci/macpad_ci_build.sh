@@ -141,15 +141,43 @@ echo "    size   = $(wc -c < "$DIST/MacWSWindowing.dylib" | tr -d ' ') bytes"
 echo "    sha256 = $(cat "$DIST/MacWSWindowing.sha256")"
 
 echo
-echo "==> [4/5] 构建完整 .deb 包（尽力而为：失败只告警，不影响三件套）"
-set +e
+echo "==> [4/5] 构建完整 .deb 包"
+echo "    注：全量 package 允许非零返回，但关键组件会逐项硬校验（见下）"
+# 这段必须彻底隔离：三件套此刻已经落盘，任何意外（未定义变量、子项目编译失败）
+# 都不允许把整个运行拖成失败。set +u 也一并关掉，避免再犯 locale/变量名类问题。
+set +eu
 "$GMAKE" FINALPACKAGE=1 STRIP=0 OPTFLAG=-O2 \
     THEOS_PACKAGE_SCHEME=rootless GO_EASY_ON_ME=1 package
 PKG_RC=$?
-set -e
+set -eu
 if [ "$PKG_RC" -ne 0 ]; then
-    echo "    ⚠️  WARN: 全量 package 返回 $PKG_RC（其他子项目失败属预期，三件套已产出）"
+    echo "    ⚠️  WARN: 全量 package 返回 ${PKG_RC}（逐项校验见下）"
 fi
+# 注意：变量引用后紧跟非 ASCII（中文）时必须写成 ${VAR}。
+# CI 的 shell 常是 C/POSIX locale，多字节字符的首字节会被并进变量名，
+# 触发 "PKG_RC?: unbound variable" 而让 set -u 直接终止脚本。
+#
+# MTLCompilerBypassOSCheck 必须产出：它承载 iPadOS 16.5.1 的
+# libGPUCompilerImpl / libComposeFilters / libLLVM UUID 与指令签名适配
+# （见 macPad-port/12_Phase2_UUID重算与补丁.md），缺了它 GPU 着色器编译
+# 这一路不成立。历史上它曾因 CI 混入 iPhoneOS17.5 SDK 而编译失败
+#   Tweak.x:21  error: conflicting types for 'xpc_data_create'
+#   Tweak.x:848 / :893  implicit conversion of 'xpc_object_t' to 'void *'
+# 当时被误判为"预期失败"而绕过，造成 CI 绿灯但产物残缺。现改为硬断言。
+MTL_OBJ=""
+for cand in "$PROJECT_DIR/.theos/obj/MTLCompilerBypassOSCheck.dylib" \
+            "$PROJECT_DIR/.theos/obj/arm64/MTLCompilerBypassOSCheck.dylib" \
+            "$PROJECT_DIR"/.theos/obj/*/MTLCompilerBypassOSCheck.dylib; do
+    [ -f "$cand" ] && MTL_OBJ="$cand" && break
+done
+if [ -z "$MTL_OBJ" ]; then
+    echo "ERROR: MTLCompilerBypassOSCheck.dylib 未产出" >&2
+    echo "       该组件为 iPadOS 16.5.1 适配所必需，不允许缺失。" >&2
+    echo "       首要排查：CI 是否只使用 iPhoneOS16.5.sdk（不能混入 17.x）。" >&2
+    exit 1
+fi
+echo "    ✓ MTLCompilerBypassOSCheck.dylib $(wc -c < "$MTL_OBJ" | tr -d ' ') bytes"
+echo "      path = $MTL_OBJ"
 DEB="$(ls -t .theos/packages/*.deb 2>/dev/null | head -1 || true)"
 [ -n "$DEB" ] || DEB="$(ls -t .theos/*.deb 2>/dev/null | head -1 || true)"
 if [ -z "$DEB" ]; then
