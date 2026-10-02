@@ -1,0 +1,81 @@
+# macPad · 云端 macOS 构建（GitHub Actions）
+#
+# 用途：把「必须有一台 Mac」的构建环节搬到 GitHub 的 macOS runner 上，
+#       产出 MacWSWindowing 三件套 + 完整 .deb，供 Windows/iPad 侧使用。
+#
+# 放置位置：macPad 仓库根目录下的  .github/workflows/macpad-build.yml
+#
+# 触发方式：
+#   1) 手动：仓库 -> Actions -> Build macPad -> Run workflow
+#   2) 自动：push 改动到 MacWSWindowing/ 或共享头文件时
+#
+# 注意：本文件未在真实仓库中实测过，首次运行请预留调试时间。
+
+name: Build macPad
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'MacWSWindowing/**'
+      - 'include/**'
+      - 'Makefile'
+      - 'config/production.mk'
+      - 'ci/**'
+      - '.github/workflows/macpad-build.yml'
+
+jobs:
+  build:
+    runs-on: macos-14
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: 确认 Xcode 工具链
+        run: |
+          xcode-select -p
+          xcrun --sdk macosx --show-sdk-version
+          which dyld_info
+          which shasum
+          clang --version | head -2
+          python3 -V
+
+      - name: 安装构建工具（GNU make / ldid / dpkg / git-lfs）
+        run: |
+          brew install make ldid dpkg git-lfs
+          echo "$(brew --prefix)/opt/make/libexec/gnubin" >> "$GITHUB_PATH"
+
+      - name: 安装 Theos 与 iOS SDK
+        run: |
+          export THEOS="$HOME/theos"
+          git clone --recursive https://github.com/theos/theos.git "$THEOS"
+          echo "THEOS=$THEOS" >> "$GITHUB_ENV"
+          echo "$THEOS/bin" >> "$GITHUB_PATH"
+
+          git clone --depth 1 https://github.com/theos/sdks.git "$RUNNER_TEMP/sdks"
+          cd "$RUNNER_TEMP/sdks"
+          git lfs install --local || true
+          git lfs pull || true
+
+          mkdir -p "$THEOS/sdks"
+          cp -R "$RUNNER_TEMP"/sdks/*.sdk "$THEOS/sdks/" 2>/dev/null || true
+
+          echo "--- Theos SDKs ---"
+          ls "$THEOS/sdks"
+          ls -1 "$THEOS/sdks" | grep -i '^iPhoneOS' || { echo "ERROR: 没有 iPhoneOS SDK" >&2; exit 1; }
+
+      - name: 构建
+        run: bash ci/macpad_ci_build.sh
+
+      - name: 上传产物
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: macpad-dist
+          path: |
+            dist/
+            MacWSWindowing/.theos/obj/MacWSWindowing.dylib
+          if-no-files-found: warn
+          retention-days: 30
