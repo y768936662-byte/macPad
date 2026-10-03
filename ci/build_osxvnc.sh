@@ -68,34 +68,38 @@ cp -f "$JPEGLIB_A" libjpeg/libjpeg.a
 
 echo "==> [4/6] build OSXvnc-server (arm64, min macOS 13.0)"
 # The upstream Makefile compiles main.c with plain `cc` (C mode), but main.c
-# includes <Cocoa/Cocoa.h> -> NSString/Protocol undefined in C. We build each
+# includes <Cocoa/Cocoa.h> -> NSString/Protocol undefined in C. Build each
 # object explicitly with the correct language, bypassing the fragile Makefile.
 HDR_DIR="$(dirname "$JPEGLIB_HDR")"
 JCFG_DIR="$(dirname "$JCONFIG_HDR")"
 TFH_DIR="$(dirname "$TURBO_HDR")"
-INC="-Ilibvncauth -Iinclude -Iinclude/X11 -Iinclude/Xserver -I\"$HDR_DIR\" -I\"$JCFG_DIR\" -I\"$TFH_DIR\""
-CFLAGS_ALL="-O2 -arch arm64 -mmacosx-version-min=13.0"
+ARCHFLAGS=(-O2 -arch arm64 -mmacosx-version-min=13.0)
+# -I. so <rfbproto.h> / <vncauth.h> (same dir as rfb.h) resolve; plus libjpeg dirs.
+INCFLAGS=(-I. -Ilibvncauth -Iinclude -Iinclude/X11 -Iinclude/Xserver)
+[ -n "$HDR_DIR" ]  && INCFLAGS+=(-I"$HDR_DIR")
+[ -n "$JCFG_DIR" ] && INCFLAGS+=(-I"$JCFG_DIR")
+[ -n "$TFH_DIR" ]  && INCFLAGS+=(-I"$TFH_DIR")
 
 C_SRCS="main rfbserver miregion kbdptr auth sockets xalloc stats corre hextile rre translate cutpaste dimming tight zlib zlibhex mousecursor"
 echo "  compiling .c as Objective-C + zrle.cc as C++ ..."
-rm -f *.o OSXvnc-server storepasswd
+rm -f *.o OSXvnc-server storepasswd build_all.log
 for f in $C_SRCS; do
-  clang -x objective-c $CFLAGS_ALL $INC -c "$f.c" -o "$f.o" 2>>build_all.log \
+  clang -x objective-c "${ARCHFLAGS[@]}" "${INCFLAGS[@]}" -c "$f.c" -o "$f.o" >>build_all.log 2>&1 \
     || { echo "  FATAL: compile $f.c"; tail -40 build_all.log; exit 1; }
 done
-clang++ -x c++ $CFLAGS_ALL $INC -c zrle.cc -o zrle.o 2>>build_all.log \
+clang++ -x c++ "${ARCHFLAGS[@]}" "${INCFLAGS[@]}" -c zrle.cc -o zrle.o >>build_all.log 2>&1 \
   || { echo "  FATAL: compile zrle.cc"; tail -40 build_all.log; exit 1; }
-clang $CFLAGS_ALL $INC -c VNCServer.m -o VNCServer.o 2>>build_all.log \
+clang -x objective-c "${ARCHFLAGS[@]}" "${INCFLAGS[@]}" -c VNCServer.m -o VNCServer.o >>build_all.log 2>&1 \
   || { echo "  FATAL: compile VNCServer.m"; tail -40 build_all.log; exit 1; }
 
 echo "  linking (clang++ driver -> auto C++ runtime) ..."
-OBJ="$C_SRCS"
 LINK_OBJS=""
-for f in $OBJ; do LINK_OBJS="$LINK_OBJS $f.o"; done
+for f in $C_SRCS; do LINK_OBJS="$LINK_OBJS $f.o"; done
 clang++ -o OSXvnc-server $LINK_OBJS zrle.o VNCServer.o \
-  -Llibvncauth -lvncauth -Llibjpeg -ljpeg -lturbojpeg -lz -Lrdr -lrdr \
-  -framework Carbon -framework IOKit -framework Cocoa -lz \
-  2>>build_all.log
+  -Llibvncauth -lvncauth -Llibjpeg -ljpeg -lturbojpeg -Lrdr -lrdr -lz \
+  "${ARCHFLAGS[@]}" \
+  -framework Carbon -framework IOKit -framework Cocoa \
+  >>build_all.log 2>&1
 if [ $? -ne 0 ] || [ ! -f OSXvnc-server ]; then
   echo "---- build_all.log tail ----"; tail -60 build_all.log; echo "----"
   echo "FATAL: link failed"; exit 1
