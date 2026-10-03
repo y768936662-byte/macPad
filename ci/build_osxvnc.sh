@@ -81,11 +81,20 @@ INCFLAGS=(-I. -Ilibvncauth -Iinclude -Iinclude/X11 -Iinclude/Xserver)
 [ -n "$TFH_DIR" ]  && INCFLAGS+=(-I"$TFH_DIR")
 
 C_SRCS="main rfbserver miregion kbdptr auth sockets xalloc stats corre hextile rre translate cutpaste dimming tight zlib zlibhex mousecursor"
-echo "  compiling .c as Objective-C + zrle.cc as C++ ..."
+# Files that actually use Cocoa/Carbon/AppKit/ObjC -> compile as Objective-C.
+# All others are pure C; forcing -x objective-c on them triggers an objc.h
+# 'bool' vs 'int8_t' typedef clash, so compile those as plain C.
+OBJC_C="main rfbserver dimming mousecursor"
+echo "  compiling ObjC .c + pure-C .c + zrle.cc(C++) + VNCServer.m ..."
 rm -f *.o OSXvnc-server storepasswd build_all.log
 for f in $C_SRCS; do
-  clang -x objective-c "${ARCHFLAGS[@]}" "${INCFLAGS[@]}" -c "$f.c" -o "$f.o" >>build_all.log 2>&1 \
-    || { echo "  FATAL: compile $f.c"; tail -40 build_all.log; exit 1; }
+  case " $OBJC_C " in
+    *" $f "*) MODE="objective-c" ;;
+    *) MODE="c" ;;
+  esac
+  LANG_FLAG=(-x "$MODE")
+  clang "${LANG_FLAG[@]}" "${ARCHFLAGS[@]}" "${INCFLAGS[@]}" -c "$f.c" -o "$f.o" >>build_all.log 2>&1 \
+    || { echo "  FATAL: compile $f.c as $MODE"; tail -40 build_all.log; exit 1; }
 done
 clang++ -x c++ "${ARCHFLAGS[@]}" "${INCFLAGS[@]}" -c zrle.cc -o zrle.o >>build_all.log 2>&1 \
   || { echo "  FATAL: compile zrle.cc"; tail -40 build_all.log; exit 1; }
