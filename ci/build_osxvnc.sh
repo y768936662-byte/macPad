@@ -81,21 +81,26 @@ INCFLAGS=(-I. -Ilibvncauth -Iinclude -Iinclude/X11 -Iinclude/Xserver)
 [ -n "$TFH_DIR" ]  && INCFLAGS+=(-I"$TFH_DIR")
 
 C_SRCS="main rfbserver miregion kbdptr auth sockets xalloc stats corre hextile rre translate cutpaste dimming tight zlib zlibhex mousecursor"
-# Files that actually use Cocoa/Carbon/AppKit/ObjC -> compile as Objective-C.
-# All others are pure C; forcing -x objective-c on them triggers an objc.h
-# 'bool' vs 'int8_t' typedef clash, so compile those as plain C.
-OBJC_C="main rfbserver dimming mousecursor"
-echo "  compiling ObjC .c + pure-C .c + zrle.cc(C++) + VNCServer.m ..."
+# Some .c transitively pull in Cocoa/Carbon/Foundation (via rfb.h) and must be
+# built as Objective-C; others (sockets.c) clash with objc.h's `bool` and must
+# stay plain C. We don't know each one up-front, so per-file: try C first,
+# fall back to Objective-C on failure. This converges in a single run.
+echo "  compiling per-file (C, fallback Objective-C) + zrle.cc(C++) + VNCServer.m ..."
 rm -f *.o OSXvnc-server storepasswd build_all.log
+comp_ok=0
 for f in $C_SRCS; do
-  case " $OBJC_C " in
-    *" $f "*) MODE="objective-c" ;;
-    *) MODE="c" ;;
-  esac
-  LANG_FLAG=(-x "$MODE")
-  clang "${LANG_FLAG[@]}" "${ARCHFLAGS[@]}" "${INCFLAGS[@]}" -c "$f.c" -o "$f.o" >>build_all.log 2>&1 \
-    || { echo "  FATAL: compile $f.c as $MODE"; tail -40 build_all.log; exit 1; }
+  if clang -x c "${ARCHFLAGS[@]}" "${INCFLAGS[@]}" -c "$f.c" -o "$f.o" >>build_all.log 2>&1; then
+    echo "  [c]  $f.c"
+    comp_ok=1
+  elif clang -x objective-c "${ARCHFLAGS[@]}" "${INCFLAGS[@]}" -c "$f.c" -o "$f.o" >>build_all.log 2>&1; then
+    echo "  [objc] $f.c"
+    comp_ok=1
+  else
+    echo "  FATAL: $f.c fails as both C and Objective-C"
+    tail -40 build_all.log; exit 1
+  fi
 done
+[ "$comp_ok" = "1" ] || { echo "FATAL: nothing compiled"; tail -40 build_all.log; exit 1; }
 clang++ -x c++ "${ARCHFLAGS[@]}" "${INCFLAGS[@]}" -c zrle.cc -o zrle.o >>build_all.log 2>&1 \
   || { echo "  FATAL: compile zrle.cc"; tail -40 build_all.log; exit 1; }
 clang -x objective-c "${ARCHFLAGS[@]}" "${INCFLAGS[@]}" -c VNCServer.m -o VNCServer.o >>build_all.log 2>&1 \
