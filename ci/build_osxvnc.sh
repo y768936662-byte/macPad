@@ -70,7 +70,7 @@ echo "==> [4/6] build OSXvnc-server (arm64, min macOS 13.0)"
 HDR_DIR="$(dirname "$JPEGLIB_HDR")"
 JCFG_DIR="$(dirname "$JCONFIG_HDR")"
 TFH_DIR="$(dirname "$TURBO_HDR")"
-CFLAGS_ALL="-O2 -mmacosx-version-min=13.0 -marm64"
+CFLAGS_ALL="-O2 -arch arm64 -mmacosx-version-min=13.0"
 make OSXvnc-server \
    CFLAGS="$CFLAGS_ALL" CXXFLAGS="$CFLAGS_ALL" \
    INCLUDES="-Ilibvncauth -Iinclude -Iinclude/X11 -Iinclude/Xserver -I\"$HDR_DIR\" -I\"$JCFG_DIR\" -I\"$TFH_DIR\"" \
