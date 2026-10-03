@@ -10,7 +10,9 @@ PKG_DIR="${1:-$(cd "$(dirname "$0")" && pwd)}"
 JB=/var/jb/usr/macOS/bin
 ROOTFS=/var/mnt/rootfs
 ENT="$JB/entitlements.plist"
-TOOLS="macwsdisplayd macwsinputd macwsinteropd macwsworkspacectl macwsneofetch"
+# 注意：设备端 postinst/configure_terminal_cli 用连字符名 macws-neofetch（装 /usr/local/bin/macws-neofetch），
+# 其余 4 个不带连字符。与 CI 产物名一致。
+TOOLS="macwsdisplayd macwsinputd macwsinteropd macwsworkspacectl macws-neofetch"
 MAN="$PKG_DIR/macws-tools.build.json"
 
 say(){ printf '%s\n' "$*"; }
