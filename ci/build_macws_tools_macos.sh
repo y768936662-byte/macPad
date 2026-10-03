@@ -1,0 +1,68 @@
+#!/bin/bash
+# ============================================================
+# 在一台 Mac（或 macos-14 GitHub runner）上补齐 5 个 macOS-SDK 工具：
+#   macwsdisplayd  macwsinputd  macwsinteropd  macwsworkspacectl  macwsneofetch
+# 它们 Makefile 是 TARGET:=macosx（链 AppKit/QuickLookThumbnailing），
+# 设备 Theos 没有 macOS SDK，编不了 → 必须 Mac 编好再缓存到设备。
+#
+# 用法（在 Mac 上，THEOS 已装、macosx SDK 可用时）：
+#   export THEOS=$HOME/theos
+#   export PROJECT_DIR=/path/to/macPad   # 含 misc/macws_artifact_contract.py
+#   bash ci/build_macws_tools_macos.sh
+# 产物：$PROJECT_DIR/dist/macws-tools/
+#   - 5 个二进制（fat: arm64+arm64e）
+#   - macws-tools.build.json（每个二进制的 sha256 + 源指纹）
+#   - install_macws_tools_on_ipad.sh（推到设备并安装+信任的脚本）
+# ============================================================
+set -euo pipefail
+
+PROJECT_DIR="${PROJECT_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
+THEOS="${THEOS:-$HOME/theos}"
+export THEOS
+DIST="$PROJECT_DIR/dist/macws-tools"
+mkdir -p "$DIST"
+cd "$PROJECT_DIR"
+
+TOOLS="macwsdisplayd macwsinputd macwsinteropd macwsworkspacectl macwsneofetch"
+GMAKE="$(command -v gmake || command -v make)"
+ENT="$PROJECT_DIR/layout/usr/macOS/bin/entitlements.plist"
+
+echo "==> [1/4] 准备 macOS SDK 符号链接（给 Theos）"
+if ! ls "$THEOS"/sdks/MacOSX*.sdk >/dev/null 2>&1; then
+  P="$(xcrun --sdk macosx --show-sdk-path)"; V="$(xcrun --sdk macosx --show-sdk-version)"
+  ln -sfn "$P" "$THEOS/sdks/MacOSX${V}.sdk"; echo "    已链接 MacOSX${V}.sdk"
+fi
+
+echo "==> [2/4] 逐个构建 5 个工具（macosx:clang，fat arm64+arm64e）"
+for t in $TOOLS; do
+  echo "---- $t ----"
+  if [ ! -d "$PROJECT_DIR/$t" ]; then echo "    跳过：缺 $t/ 目录"; continue; fi
+  "$GMAKE" -C "$t" clean all \
+      FINALPACKAGE=1 STRIP=0 OPTFLAG=-O2 \
+      THEOS_PACKAGE_SCHEME=rootless GO_EASY_ON_ME=1 ARCHS="arm64 arm64e" 2>&1 | tail -3
+  BUILT="$(find "$t/.theos/obj" -name "$t" -type f 2>/dev/null | head -1)"
+  [ -n "$BUILT" ] || { echo "    未产出 $t"; continue; }
+  ldid -S "$ENT" -M "$BUILT" 2>/dev/null || true
+  cp -f "$BUILT" "$DIST/$t"
+  echo "    -> $t  ($(lipo -info "$DIST/$t" 2>/dev/null | grep -o 'arm64e?' | tr '\n' ' '))"
+done
+
+echo "==> [3/4] 生成 manifest"
+python3 - "$DIST" <<'PY'
+import hashlib, json, os, sys, glob
+d = sys.argv[1]
+man = {"tools": {}}
+for f in sorted(os.listdir(d)):
+    if not os.path.isfile(os.path.join(d, f)) or f.endswith((".json", ".sh")):
+        continue
+    p = os.path.join(d, f)
+    man["tools"][f] = {"sha256": hashlib.sha256(open(p, "rb").read()).hexdigest(),
+                       "bytes": os.path.getsize(p)}
+json.dump(man, open(os.path.join(d, "macws-tools.build.json"), "w"), indent=2, sort_keys=True)
+print("    manifest:", [k for k in man["tools"]])
+PY
+
+echo "==> [4/4] 产出设备安装脚本"
+cp "$PROJECT_DIR/ci/install_macws_tools_on_ipad.sh" "$DIST/install_macws_tools_on_ipad.sh" 2>/dev/null || true
+ls -la "$DIST" | sed 's/^/    /'
+echo "完成。把 $DIST/ 推到 iPad 后跑 install_macws_tools_on_ipad.sh。"

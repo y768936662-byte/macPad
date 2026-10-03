@@ -94,6 +94,12 @@ jobs:
       - name: 构建
         run: bash ci/macpad_ci_build.sh
 
+      - name: 构建 5 个 macOS-SDK 工具（macwsdisplayd/inputd/interopd/workspacectl/neofetch）
+        # 设备 Theos 无 macOS SDK，编不了这 5 个；这里在 macos runner 上编好并缓存，
+        # 供设备 install_macws_tools_on_ipad.sh 装入。失败不影响上面的 dylib 主产物。
+        continue-on-error: true
+        run: bash ci/build_macws_tools_macos.sh 2>&1 | tee macws-tools-build.log
+
       - name: 上传产物
         if: always()
         uses: actions/upload-artifact@v4
@@ -102,5 +108,6 @@ jobs:
           path: |
             dist/
             MacWSWindowing/.theos/obj/MacWSWindowing.dylib
+            dist/macws-tools/
           if-no-files-found: warn
           retention-days: 30
