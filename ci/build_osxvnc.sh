@@ -89,7 +89,7 @@ INCFLAGS=(-I. -Ilibvncauth -Iinclude -Iinclude/X11 -Iinclude/Xserver)
 [ -n "$JCFG_DIR" ] && INCFLAGS+=(-I"$JCFG_DIR")
 [ -n "$TFH_DIR" ]  && INCFLAGS+=(-I"$TFH_DIR")
 
-C_SRCS="main rfbserver miregion kbdptr auth sockets xalloc stats corre hextile rre translate cutpaste dimming tight zlib zlibhex mousecursor"
+C_SRCS="main rfbserver miregion kbdptr auth sockets xalloc stats corre hextile rre translate cutpaste dimming tight zlib zlibhex mousecursor getMACAddress vncauth"
 # Some .c transitively pull in Cocoa/Carbon/Foundation (via rfb.h) and must be
 # built as Objective-C; others (sockets.c) clash with objc.h's `bool` and must
 # stay plain C. We don't know each one up-front, so per-file: try C first,
