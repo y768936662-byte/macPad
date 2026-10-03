@@ -174,3 +174,11 @@ echo
 echo " 2) macpad_*.deb"
 echo "    -> 推到 iPad 后 dpkg -i 安装"
 echo "============================================================"
+
+echo
+echo "==> [6/6] build 5 macOS-SDK tools into dist/macws-tools"
+if bash ci/build_macws_tools_macos.sh; then
+    echo "    produced dist/macws-tools/ (uploaded with this artifact)"
+else
+    echo "    [WARN] 5-tool build failed (non-fatal). see log above."
+fi
