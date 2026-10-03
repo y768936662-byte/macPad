@@ -56,32 +56,32 @@ echo "  libjpeg.a  = $JPEGLIB_A"
 echo "  libturbojpeg.a = $TURBO_A"
 [ -n "$JPEGLIB_HDR" ] && [ -n "$JPEGLIB_A" ] || { echo "FATAL: missing jpeg headers/lib"; exit 1; }
 
-echo "==> [2b/6] build libjpeg-turbo fat (arm64;arm64e) for the arm64e binary"
+echo "==> [2b/6] build libjpeg-turbo for arm64e (separate; turbo rejects multi-arch)"
 cd "$SRC/libjpeg-turbo"
-rm -rf build-fat && mkdir build-fat && cd build-fat
+rm -rf build-arm64e && mkdir build-arm64e && cd build-arm64e
 cmake .. -DCMAKE_BUILD_TYPE=Release \
-     "-DCMAKE_OSX_ARCHITECTURES=arm64;arm64e" \
+     -DCMAKE_OSX_ARCHITECTURES=arm64e \
      -DBUILD_SHARED_LIBS=OFF \
      -DCMAKE_C_FLAGS="-mmacosx-version-min=13.0" > cmake.log 2>&1
 if [ $? -ne 0 ]; then
   echo "---- cmake.log tail ----"; tail -40 cmake.log; echo "----"
-  echo "WARN: fat libjpeg cmake failed; arm64e build will be skipped"
-  FAT_OK=0
+  echo "WARN: arm64e libjpeg cmake failed; arm64e slice will be skipped"
+  AE_OK_BASE=0
 else
   make -j"$(sysctl -n hw.ncpu)" > make.log 2>&1
   if [ $? -ne 0 ]; then
     echo "---- make.log tail ----"; tail -40 make.log; echo "----"
-    echo "WARN: fat libjpeg make failed; arm64e build will be skipped"
-    FAT_OK=0
+    echo "WARN: arm64e libjpeg make failed; arm64e slice will be skipped"
+    AE_OK_BASE=0
   else
-    FAT_OK=1
+    AE_OK_BASE=1
   fi
 fi
 cd "$SRC"
-FAT_JPEGLIB_A=""; FAT_TURBO_A=""
-[ "$FAT_OK" = "1" ] && FAT_JPEGLIB_A="$(find "$SRC/libjpeg-turbo/build-fat" -name 'libjpeg.a' | head -1)"
-[ "$FAT_OK" = "1" ] && FAT_TURBO_A="$(find "$SRC/libjpeg-turbo/build-fat" -name 'libturbojpeg.a' | head -1)"
-echo "  fat libjpeg.a = ${FAT_JPEGLIB_A:-n/a}  fat libturbojpeg.a = ${FAT_TURBO_A:-n/a}"
+AE_JPEGLIB_A=""; AE_TURBO_A=""
+[ "$AE_OK_BASE" = "1" ] && AE_JPEGLIB_A="$(find "$SRC/libjpeg-turbo/build-arm64e" -name 'libjpeg.a' | head -1)"
+[ "$AE_OK_BASE" = "1" ] && AE_TURBO_A="$(find "$SRC/libjpeg-turbo/build-arm64e" -name 'libturbojpeg.a' | head -1)"
+echo "  arm64e libjpeg.a = ${AE_JPEGLIB_A:-n/a}  arm64e libturbojpeg.a = ${AE_TURBO_A:-n/a}"
 
 cd "$SRC/OSXvnc-server"
 
@@ -166,8 +166,9 @@ fi
 
 echo "==> [4b/6] build arm64e slice (needs fat jpeg + allow-arm64e entitlement)"
 # arm64e requires the entitlement com.apple.security.cs.allow-arm64e on the
-# executable; libjpeg-turbo is built fat in [2b]; rdr needs an arm64e archive.
-if [ "$FAT_OK" = "1" ] && [ -n "$FAT_JPEGLIB_A" ]; then
+# executable; libjpeg-turbo arm64e built in [2b]; arm64e libvncauth + rdr built here.
+if [ "$AE_OK_BASE" = "1" ] && [ -n "$AE_JPEGLIB_A" ]; then
+  AE_JPEG_DIR="$(dirname "$AE_JPEGLIB_A")"
   ENT_AE=$(mktemp /tmp/ent_arm64e.XXXXXX)
   cat > "$ENT_AE" <<'EPLIST'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -179,15 +180,12 @@ if [ "$FAT_OK" = "1" ] && [ -n "$FAT_JPEGLIB_A" ]; then
 </dict>
 </plist>
 EPLIST
-  # fat stub libvncauth (arm64+arm64e)
-  ( cd libvncauth && rm -f libvncauth.a __stub64e.c __stub64e.o \
+  # arm64e-only stub libvncauth (separate archive so it does not clobber arm64 one)
+  ( mkdir -p libvncauth_ae && cd libvncauth_ae \
       && printf 'int __vncauth_stub64e;' > __stub64e.c \
-      && cc -arch arm64 -arch arm64e -c __stub64e.c -o __stub64e.o \
-      && ar rcs libvncauth.a __stub64e.o \
+      && cc -arch arm64e -c __stub64e.c -o __stub64e.o \
+      && ar rcs libvncauth_ae.a __stub64e.o \
       && rm -f __stub64e.c __stub64e.o )
-  # fat jpeg libs override the arm64-only copies for the arm64e link
-  cp -f "$FAT_JPEGLIB_A" libjpeg/libjpeg.a
-  [ -n "${FAT_TURBO_A:-}" ] && cp -f "$FAT_TURBO_A" libjpeg/libturbojpeg.a || true
   AE_OK=1
   for f in $C_SRCS; do
     if clang -x c -O2 -arch arm64e -mmacosx-version-min=13.0 "${INCFLAGS[@]}" -c "$f.c" -o "${f}_ae.o" >>build_ae.log 2>&1; then
@@ -200,14 +198,18 @@ EPLIST
     fi
   done
   if [ "$AE_OK" = "1" ]; then
-    clang++ -x c++ -O2 -arch arm64e -mmacosx-version-min=13.0 "${INCFLAGS[@]}" -c zrle.cc -o zrle_ae.o >>build_ae.log 2>&1 || { AE_OK=0; }
-    clang -x objective-c -O2 -arch arm64e -mmacosx-version-min=13.0 "${INCFLAGS[@]}" -c VNCServer.m -o VNCServer_ae.o >>build_ae.log 2>&1 || { AE_OK=0; }
+    clang++ -x c++ -O2 -arch arm64e -mmacosx-version-min=13.0 "${INCFLAGS[@]}" -c zrle.cc -o zrle_ae.o >>build_ae.log 2>&1 || { echo "  WARN: zrle.cc arm64e failed"; AE_OK=0; }
+    [ "$AE_OK" = "1" ] && clang -x objective-c -O2 -arch arm64e -mmacosx-version-min=13.0 "${INCFLAGS[@]}" -c VNCServer.m -o VNCServer_ae.o >>build_ae.log 2>&1 || { echo "  WARN: VNCServer.m arm64e failed"; AE_OK=0; }
   fi
   if [ "$AE_OK" = "1" ]; then
     AE_OBJS=""; for f in $C_SRCS; do AE_OBJS="$AE_OBJS ${f}_ae.o"; done
-    AE_RDR="rdr_e/librdr.a"; [ -f "$AE_RDR" ] || AE_RDR="rdr/librdr.a"
+    # arm64e rdr archive (rdr_e/librdr.a from [3]); fall back to C++ static from arm64 is WRONG for arm64e, so require rdr_e
+    AE_RDR="rdr_e/librdr_e.a"; [ -f "$AE_RDR" ] || AE_RDR="rdr_e/librdr.a"
+    [ -f "$AE_RDR" ] || { echo "  WARN: no arm64e rdr archive (rdr_e/); arm64e slice skipped"; AE_OK=0; }
+  fi
+  if [ "$AE_OK" = "1" ]; then
     clang++ -o OSXvnc-server.ae $AE_OBJS zrle_ae.o VNCServer_ae.o \
-      -Llibvncauth -lvncauth -Llibjpeg -ljpeg -lturbojpeg -L"$AE_RDR" -lrdr -lz \
+      -Llibvncauth_ae -lvncauth_ae -L"$AE_JPEG_DIR" -ljpeg -lturbojpeg -Lrdr_e -lrdr -lz \
       -O2 -arch arm64e -mmacosx-version-min=13.0 \
       -sectcreate __TEXT __entitlements "$ENT_AE" \
       -framework Carbon -framework IOKit -framework Cocoa \
@@ -223,7 +225,7 @@ EPLIST
   fi
   rm -f "$ENT_AE"
 else
-  echo "  WARN: fat libjpeg unavailable; arm64e slice skipped (arm64 only)"
+  echo "  WARN: arm64e libjpeg/rdr unavailable; arm64e slice skipped (arm64 only)"
 fi
 
 echo "==> [5/6] verify architecture"
