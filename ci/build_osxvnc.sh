@@ -56,6 +56,33 @@ echo "  libjpeg.a  = $JPEGLIB_A"
 echo "  libturbojpeg.a = $TURBO_A"
 [ -n "$JPEGLIB_HDR" ] && [ -n "$JPEGLIB_A" ] || { echo "FATAL: missing jpeg headers/lib"; exit 1; }
 
+echo "==> [2b/6] build libjpeg-turbo fat (arm64;arm64e) for the arm64e binary"
+cd "$SRC/libjpeg-turbo"
+rm -rf build-fat && mkdir build-fat && cd build-fat
+cmake .. -DCMAKE_BUILD_TYPE=Release \
+     "-DCMAKE_OSX_ARCHITECTURES=arm64;arm64e" \
+     -DBUILD_SHARED_LIBS=OFF \
+     -DCMAKE_C_FLAGS="-mmacosx-version-min=13.0" > cmake.log 2>&1
+if [ $? -ne 0 ]; then
+  echo "---- cmake.log tail ----"; tail -40 cmake.log; echo "----"
+  echo "WARN: fat libjpeg cmake failed; arm64e build will be skipped"
+  FAT_OK=0
+else
+  make -j"$(sysctl -n hw.ncpu)" > make.log 2>&1
+  if [ $? -ne 0 ]; then
+    echo "---- make.log tail ----"; tail -40 make.log; echo "----"
+    echo "WARN: fat libjpeg make failed; arm64e build will be skipped"
+    FAT_OK=0
+  else
+    FAT_OK=1
+  fi
+fi
+cd "$SRC"
+FAT_JPEGLIB_A=""; FAT_TURBO_A=""
+[ "$FAT_OK" = "1" ] && FAT_JPEGLIB_A="$(find "$SRC/libjpeg-turbo/build-fat" -name 'libjpeg.a' | head -1)"
+[ "$FAT_OK" = "1" ] && FAT_TURBO_A="$(find "$SRC/libjpeg-turbo/build-fat" -name 'libturbojpeg.a' | head -1)"
+echo "  fat libjpeg.a = ${FAT_JPEGLIB_A:-n/a}  fat libturbojpeg.a = ${FAT_TURBO_A:-n/a}"
+
 cd "$SRC/OSXvnc-server"
 
 echo "==> [3/6] satisfy Makefile prerequisites (libvncauth / libjpeg / rdr)"
@@ -74,6 +101,15 @@ mkdir -p libjpeg
 cp -f "$JPEGLIB_A" libjpeg/libjpeg.a
 [ -n "${TURBO_A:-}" ] && cp -f "$TURBO_A" libjpeg/libturbojpeg.a
 ( cd rdr && make librdr.a > /dev/null 2>&1 ) || ( cd rdr && make librdr.a )
+# fat C++ archive for the arm64e binary (rdr is C++; plain -arch arm64e needs it)
+if [ -d rdr ]; then
+  cp -R rdr rdr_e 2>/dev/null || true
+  if [ -d rdr_e ]; then
+    ( cd rdr_e && make clean > /dev/null 2>&1; make librdr_e.a CXXFLAGS="-O2 -arch arm64e -mmacosx-version-min=13.0" > /dev/null 2>&1 ) || \
+      ( cd rdr_e && make librdr.a CXXFLAGS="-O2 -arch arm64e -mmacosx-version-min=13.0" > /dev/null 2>&1 )
+    ls rdr_e/librdr_e.a rdr_e/librdr.a 2>/dev/null
+  fi
+fi
 
 echo "==> [4/6] build OSXvnc-server (arm64, min macOS 13.0)"
 # The upstream Makefile compiles main.c with plain `cc` (C mode), but main.c
@@ -128,6 +164,68 @@ if [ $? -ne 0 ] || [ ! -f OSXvnc-server ]; then
   echo "FATAL: link failed"; exit 1
 fi
 
+echo "==> [4b/6] build arm64e slice (needs fat jpeg + allow-arm64e entitlement)"
+# arm64e requires the entitlement com.apple.security.cs.allow-arm64e on the
+# executable; libjpeg-turbo is built fat in [2b]; rdr needs an arm64e archive.
+if [ "$FAT_OK" = "1" ] && [ -n "$FAT_JPEGLIB_A" ]; then
+  ENT_AE=$(mktemp /tmp/ent_arm64e.XXXXXX)
+  cat > "$ENT_AE" <<'EPLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>com.apple.security.cs.allow-arm64e</key>
+    <true/>
+</dict>
+</plist>
+EPLIST
+  # fat stub libvncauth (arm64+arm64e)
+  ( cd libvncauth && rm -f libvncauth.a __stub64e.c __stub64e.o \
+      && printf 'int __vncauth_stub64e;' > __stub64e.c \
+      && cc -arch arm64 -arch arm64e -c __stub64e.c -o __stub64e.o \
+      && ar rcs libvncauth.a __stub64e.o \
+      && rm -f __stub64e.c __stub64e.o )
+  # fat jpeg libs override the arm64-only copies for the arm64e link
+  cp -f "$FAT_JPEGLIB_A" libjpeg/libjpeg.a
+  [ -n "${FAT_TURBO_A:-}" ] && cp -f "$FAT_TURBO_A" libjpeg/libturbojpeg.a || true
+  AE_OK=1
+  for f in $C_SRCS; do
+    if clang -x c -O2 -arch arm64e -mmacosx-version-min=13.0 "${INCFLAGS[@]}" -c "$f.c" -o "${f}_ae.o" >>build_ae.log 2>&1; then
+      :
+    elif clang -x objective-c -O2 -arch arm64e -mmacosx-version-min=13.0 "${INCFLAGS[@]}" -c "$f.c" -o "${f}_ae.o" >>build_ae.log 2>&1; then
+      :
+    else
+      echo "  WARN: $f.c fails as arm64e (both C and ObjC); arm64e slice skipped"
+      AE_OK=0; break
+    fi
+  done
+  if [ "$AE_OK" = "1" ]; then
+    clang++ -x c++ -O2 -arch arm64e -mmacosx-version-min=13.0 "${INCFLAGS[@]}" -c zrle.cc -o zrle_ae.o >>build_ae.log 2>&1 || { AE_OK=0; }
+    clang -x objective-c -O2 -arch arm64e -mmacosx-version-min=13.0 "${INCFLAGS[@]}" -c VNCServer.m -o VNCServer_ae.o >>build_ae.log 2>&1 || { AE_OK=0; }
+  fi
+  if [ "$AE_OK" = "1" ]; then
+    AE_OBJS=""; for f in $C_SRCS; do AE_OBJS="$AE_OBJS ${f}_ae.o"; done
+    AE_RDR="rdr_e/librdr.a"; [ -f "$AE_RDR" ] || AE_RDR="rdr/librdr.a"
+    clang++ -o OSXvnc-server.ae $AE_OBJS zrle_ae.o VNCServer_ae.o \
+      -Llibvncauth -lvncauth -Llibjpeg -ljpeg -lturbojpeg -L"$AE_RDR" -lrdr -lz \
+      -O2 -arch arm64e -mmacosx-version-min=13.0 \
+      -sectcreate __TEXT __entitlements "$ENT_AE" \
+      -framework Carbon -framework IOKit -framework Cocoa \
+      >>build_ae.log 2>&1
+    if [ $? -eq 0 ] && [ -f OSXvnc-server.ae ]; then
+      echo "  arm64e slice built (OSXvnc-server.ae, allow-arm64e embedded)"
+      lipo -archs OSXvnc-server.ae 2>/dev/null || file OSXvnc-server.ae
+    else
+      echo "---- build_ae.log tail ----"; tail -40 build_ae.log; echo "----"
+      echo "  WARN: arm64e link failed; continuing with arm64 only"
+      AE_OK=0
+    fi
+  fi
+  rm -f "$ENT_AE"
+else
+  echo "  WARN: fat libjpeg unavailable; arm64e slice skipped (arm64 only)"
+fi
+
 echo "==> [5/6] verify architecture"
 vtool -show-build OSXvnc-server 2>/dev/null | grep -E "platform|arch|minOS" || true
 lipo -archs OSXvnc-server 2>/dev/null || file OSXvnc-server
@@ -137,5 +235,10 @@ echo "==> [6/6] stage to dist"
 cp -f OSXvnc-server "$OUT/OSXvnc-server"
 cp -f storepasswd "$OUT/storepasswd" 2>/dev/null || true
 shasum -a 256 "$OUT/OSXvnc-server" | sed 's/[[:space:]].*//' > "$OUT/OSXvnc-server.sha256"
+if [ -f OSXvnc-server.ae ]; then
+  cp -f OSXvnc-server.ae "$OUT/OSXvnc-server.ae"
+  shasum -a 256 "$OUT/OSXvnc-server.ae" | sed 's/[[:space:]].*//' > "$OUT/OSXvnc-server.ae.sha256"
+fi
 ls -la "$OUT"
 echo "==> DONE: $OUT/OSXvnc-server  sha256=$(cat "$OUT/OSXvnc-server.sha256")"
+[ -f "$OUT/OSXvnc-server.ae" ] && echo "==> arm64e: $OUT/OSXvnc-server.ae sha256=$(cat "$OUT/OSXvnc-server.ae.sha256")" || echo "==> (no arm64e slice this run)"
