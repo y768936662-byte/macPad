@@ -59,8 +59,13 @@ echo "  libturbojpeg.a = $TURBO_A"
 cd "$SRC/OSXvnc-server"
 
 echo "==> [3/6] satisfy Makefile prerequisites (libvncauth / libjpeg / rdr)"
+# libvncauth: upstream ships a prebuilt .a; here it's a no-op placeholder.
+# All auth symbols actually come from auth.c (compiled above), so we just need
+# a valid empty archive so `-lvncauth` (if kept) resolves. Build it robustly.
 mkdir -p libvncauth
-( cd libvncauth && rm -f libvncauth.a && ar rcs libvncauth.a )
+( cd libvncauth && rm -f libvncauth.a __stub.c \
+    && echo 'int __vncauth_stub;' > __stub.c \
+    && ar rcs libvncauth.a __stub.c )
 mkdir -p libjpeg
 cp -f "$JPEGLIB_A" libjpeg/libjpeg.a
 [ -n "${TURBO_A:-}" ] && cp -f "$TURBO_A" libjpeg/libturbojpeg.a
