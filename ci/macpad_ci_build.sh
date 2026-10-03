@@ -66,6 +66,19 @@ echo "    iOS SDKs:"
 ls -1 "$THEOS/sdks" | grep -i '^iPhoneOS' | sed 's/^/      /' || echo "      (无)"
 
 echo
+echo
+echo "==> [1b/5] 额外构建 5 个 macOS-SDK 工具（macwsdisplayd/inputd/interopd/workspacectl/neofetch）"
+# 这些工具 Makefile 是 TARGET:=macosx（链 AppKit/QuickLookThumbnailing），设备 Theos 编不了，
+# 所以在 macOS runner 上编好、落进 dist/macws-tools/，随本 artifact 的 dist/ 一起上传。
+# 只依赖 macOS SDK，与下面的 dylib/.deb 主链无关；单个失败不影响主产物（set +e 包裹）。
+set +e
+if bash ci/build_macws_tools_macos.sh; then
+    echo "    已产出 dist/macws-tools/"
+else
+    echo "    [WARN] 5 工具构建失败（非致命）。"
+fi
+set -e
+echo
 echo "==> [2/5] 构建并校验 MacWSWindowing"
 echo "    说明：SpringBoard 是 arm64e，注入的 dylib 必须由 Apple ld64 产出"
 echo "          auth-bind/key=DA 的 __cfstring 引用；iPad 的 lld 做不到这一点。"
@@ -174,11 +187,3 @@ echo
 echo " 2) macpad_*.deb"
 echo "    -> 推到 iPad 后 dpkg -i 安装"
 echo "============================================================"
-
-echo
-echo "==> [6/6] build 5 macOS-SDK tools into dist/macws-tools"
-if bash ci/build_macws_tools_macos.sh; then
-    echo "    produced dist/macws-tools/ (uploaded with this artifact)"
-else
-    echo "    [WARN] 5-tool build failed (non-fatal). see log above."
-fi
