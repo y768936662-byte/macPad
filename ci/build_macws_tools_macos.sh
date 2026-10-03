@@ -24,6 +24,8 @@ mkdir -p "$DIST"
 cd "$PROJECT_DIR"
 
 TOOLS="macwsdisplayd macwsinputd macwsinteropd macwsworkspacectl macwsneofetch"
+# 产物二进制名与子项目目录名不同（neofetch 的 Makefile 把可执行文件编成 macws-neofetch，带连字符）
+tool_binname() { case "$1" in macwsneofetch) echo "macws-neofetch";; *) echo "$1";; esac; }
 GMAKE="$(command -v gmake || command -v make)"
 ENT="$PROJECT_DIR/layout/usr/macOS/bin/entitlements.plist"
 
@@ -40,11 +42,13 @@ for t in $TOOLS; do
   "$GMAKE" -C "$t" clean all \
       FINALPACKAGE=1 STRIP=0 OPTFLAG=-O2 \
       THEOS_PACKAGE_SCHEME=rootless GO_EASY_ON_ME=1 ARCHS="arm64 arm64e" 2>&1 | tail -3
-  BUILT="$(find "$t/.theos/obj" -name "$t" -type f 2>/dev/null | head -1)"
-  [ -n "$BUILT" ] || { echo "    未产出 $t"; continue; }
+  BINNAME=$(tool_binname "$t")
+  BUILT="$(find "$t/.theos/obj" -name "$BINNAME" -type f 2>/dev/null | head -1)"
+  [ -n "$BUILT" ] || { echo "    未产出 $t（binname=$BINNAME）"; continue; }
   ldid -S "$ENT" -M "$BUILT" 2>/dev/null || true
-  cp -f "$BUILT" "$DIST/$t"
-  echo "    -> $t  ($(lipo -info "$DIST/$t" 2>/dev/null | grep -o 'arm64e?' | tr '\n' ' '))"
+  # 产物以 BINNAME 命名（neofetch 带连字符 macws-neofetch，与设备端 postinst/configure_terminal_cli 约定一致）
+  cp -f "$BUILT" "$DIST/$BINNAME"
+  echo "    -> $BINNAME  ($(lipo -info "$DIST/$BINNAME" 2>/dev/null | grep -o 'arm64e?' | tr '\n' ' '))"
 done
 
 echo "==> [3/4] 生成 manifest"
