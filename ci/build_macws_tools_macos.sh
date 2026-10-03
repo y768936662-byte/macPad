@@ -43,30 +43,26 @@ for t in $TOOLS; do
       FINALPACKAGE=1 STRIP=0 OPTFLAG=-O2 \
       THEOS_PACKAGE_SCHEME=rootless GO_EASY_ON_ME=1 ARCHS="arm64 arm64e" 2>&1 | tail -3
   BINNAME=$(tool_binname "$t")
-  # 产物选择：优先 Theos 合并出的顶层 fat 产物 <dir>/.theos/obj/<BINNAME>；
-  # 若它是 thin（只有单架构），则用 lipo -create 把各架构对象合并成 fat。
-  # 这样 5 个工具产物都是 fat（x86_64/arm64 + arm64e），设备 ldid 才签得动。
-  TOP="$t/.theos/obj/$BINNAME"
-  archs_present="$(lipo -info "$TOP" 2>/dev/null | grep -oE 'x86_64|arm64|arm64e' | sort -u | tr '\n' ' ')"
-  if [ -f "$TOP" ] && echo "$archs_present" | grep -q "arm64e" && [ "$(echo $archs_present | wc -w)" -ge 2 ]; then
+  # Theos 布局：<dir>/.theos/obj/macosx/<BINNAME> 是合并 fat 产物；
+  #   <dir>/.theos/obj/macosx/<arch>/<BINNAME> 是 per-arch 薄产物；
+  #   另有 <arch>/<BINNAME>.dSYM/.../DWARF/<BINNAME>（调试信息，勿选）。
+  # 优先用顶层 fat；若它不是 fat 或缺失，则用 lipo 从 per-arch（min/maxdepth 2，
+  # 天然排除 DWARF 深路径与顶层）合成 fat。这样 5 个产物都 fat，设备 ldid 才签得动。
+  OBJD="$t/.theos/obj/macosx"
+  TOP="$OBJD/$BINNAME"
+  if [ -f "$TOP" ] && lipo -archs "$TOP" 2>/dev/null | grep -q arm64e; then
     BUILT="$TOP"
   else
-    # 合并所有 per-arch 对象成 fat
-    SLICES=$(find "$t/.theos/obj" -name "$BINNAME" -type f 2>/dev/null)
+    SLICES=$(find "$OBJD" -mindepth 2 -maxdepth 2 -name "$BINNAME" -type f 2>/dev/null | tr '\n' ' ')
     [ -n "$SLICES" ] || { echo "    未产出 $t（binname=$BINNAME）"; continue; }
-    echo "    合并 fat：$(echo "$SLICES" | tr '\n' ' ')"
-    lipo -create $(echo "$SLICES" | tr '\n' ' ') -output "$DIST/$BINNAME.tmp" 2>/dev/null || { echo "    lipo 合并失败 $t"; continue; }
-    BUILT="$DIST/$BINNAME.tmp"
-    rm -f "$DIST/$BINNAME.tmp" 2>/dev/null || true
-    # 合并结果放到 DIST 供 ldid/manifest 用
-    cp -f "$BUILT" "$DIST/$BINNAME" 2>/dev/null || true
-    BUILT="$DIST/$BINNAME"
-    echo "    已合成 fat $t -> $(lipo -info "$BUILT" 2>/dev/null | grep -oE 'arm64e?|x86_64' | tr '\n' ' ')"
+    echo "    lipo 合成 fat：$SLICES"
+    lipo -create $SLICES -output "$OBJD/$BINNAME.fat" 2>/dev/null || { echo "    lipo 合成失败 $t"; continue; }
+    BUILT="$OBJD/$BINNAME.fat"
   fi
   ldid -S "$ENT" -M "$BUILT" 2>/dev/null || true
   # 产物以 BINNAME 命名（neofetch 带连字符 macws-neofetch，与设备端 postinst/configure_terminal_cli 约定一致）
   cp -f "$BUILT" "$DIST/$BINNAME"
-  echo "    -> $BINNAME  ($(lipo -info "$DIST/$BINNAME" 2>/dev/null | grep -oE 'arm64e?|x86_64' | sort -u | tr '\n' ' '))"
+  echo "    -> $BINNAME  ($(lipo -archs "$DIST/$BINNAME" 2>/dev/null))"
 done
 
 echo "==> [3/4] 生成 manifest"
