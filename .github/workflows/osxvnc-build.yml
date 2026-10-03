@@ -1,0 +1,43 @@
+name: Build OSXvnc-server (arm64)
+
+on:
+  workflow_dispatch:
+    inputs:
+      osxvnc_commit:
+        description: "Optional stweil/OSXvnc commit to pin (empty = latest main)"
+        required: false
+        default: ""
+  push:
+    paths:
+      - 'ci/build_osxvnc.sh'
+      - '.github/workflows/osxvnc-build.yml'
+
+jobs:
+  build:
+    runs-on: macos-14
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify toolchain
+        run: |
+          xcode-select -p
+          xcrun --sdk macosx --show-sdk-version
+          clang --version | head -2
+          command -v cmake || brew install -q cmake || true
+          cmake --version | head -1
+
+      - name: Build OSXvnc-server (arm64)
+        run: |
+          export OUT="$PWD/dist"
+          export OSXVNC_COMMIT="${{ inputs.osxvnc_commit }}"
+          bash ci/build_osxvnc.sh
+
+      - name: Upload artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: osxvnc-dist
+          path: dist/
+          retention-days: 14
