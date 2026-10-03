@@ -14,7 +14,7 @@
 #   - macws-tools.build.json（每个二进制的 sha256 + 源指纹）
 #   - install_macws_tools_on_ipad.sh（推到设备并安装+信任的脚本）
 # ============================================================
-set -euo pipefail
+set -eu
 
 PROJECT_DIR="${PROJECT_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
 THEOS="${THEOS:-$HOME/theos}"
