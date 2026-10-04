@@ -1,0 +1,882 @@
+--- a/libmachook/mac_hooks.m
++++ b/libmachook/mac_hooks.m
+@@ -50,6 +50,7 @@
+ #include "macws_iosurface_protection_abi.h"
+ #include "macws_iosurface_layout_abi.h"
+ #include "macws_nocopy_abi.h"
++#include "macws_vnc_profile.h"
+ 
+ // These macOS code-signing entry points are present in the iPadOS shared
+ // cache and used by Ventura's CoreLocationAgent, but the iPhoneOS SDK omits
+@@ -8272,6 +8273,7 @@
+ static double *macws_rfbBackingScale = NULL;
+ static int   macws_vnc_test_on = 0;
+ static int   macws_vnc_share_on = 0;
++static _Atomic BOOL macws_vnc_adapter_active = NO;
+ 
+ // RE-confirmed via the device OSXvnc-server arm64:
+ //   * _rfbScreenInit+0xa0/+0xb8 stores CGDisplayPixelsWide/High in rfbScreen.
+@@ -8347,13 +8349,13 @@
+ // gesture one system owner through MACWS_VNC_NATIVE_ALL. AppInputBridge remains
+ // the full fallback when the native implementation is unavailable and remains
+ // the input path for the native iPad host.
+-typedef void (*MacWSVNCHandleMouse)(id, SEL, unsigned int, CGPoint, id);
++typedef void (*MacWSVNCHandleMouse)(id, SEL, int, CGPoint, void *);
+ static MacWSVNCHandleMouse macws_orig_vnc_handle_mouse = NULL;
+-typedef void (*MacWSVNCRFBStartup)(id, SEL, id);
++typedef void (*MacWSVNCRFBStartup)(id, SEL, void *);
+ static MacWSVNCRFBStartup macws_orig_vnc_rfb_startup = NULL;
+ typedef int32_t (*MacWSVNCPostLegacyMouseEvent)(CGPoint, int32_t, uint32_t,
+                                                 int32_t, ...);
+-typedef void (*MacWSVNCHandleKeyboard)(id, SEL, BOOL, unsigned int, id);
++typedef void (*MacWSVNCHandleKeyboard)(id, SEL, int, uint64_t, void *);
+ static MacWSVNCHandleKeyboard macws_orig_vnc_handle_keyboard = NULL;
+ typedef void (*MacWSVNCSendKeyEvent)(id, SEL, unsigned short, BOOL, uint64_t);
+ static MacWSVNCSendKeyEvent macws_orig_vnc_send_key_event = NULL;
+@@ -8364,6 +8366,7 @@
+ // original keysym while OSXvnc's own key table calls sendKeyEvent with the
+ // translated keycode and modifier flags.
+ static __thread unsigned int macws_vnc_current_keysym;
++static __thread BOOL macws_vnc_preserve_native_key_event;
+ static BOOL macws_vnc_left_down = NO;
+ static CGPoint macws_vnc_last_point = {-1.0, -1.0};
+ static CGPoint macws_vnc_pending_down_point = {-1.0, -1.0};
+@@ -8876,13 +8879,17 @@
+     }
+ }
+ 
+-static void macws_new_vnc_rfb_startup(id self, SEL command, id server) {
+-    // rfbStartup: is entered after OSXvnc's main path has created its real CGS
+-    // connection. Publish readiness here, not from libmachook's constructor,
+-    // so a waiting Host can never inject into a half-initialized session.
+-    macws_vnc_start_pointer_proxy_once();
++static void macws_new_vnc_rfb_startup(id self, SEL command, void *server) {
++    // This hook belongs to the real VNC main/startup path. It cannot publish
++    // from the constructor; subsequent framebuffer initialization and usable
++    // desktop/input acceptance remain separate, required runtime witnesses.
+     if (macws_orig_vnc_rfb_startup)
+         macws_orig_vnc_rfb_startup(self, command, server);
++    // Original startup may terminate or pause this server. Publish the real
++    // proxy only after it returns; this is not framebuffer/desktop readiness.
++    if (macws_orig_vnc_rfb_startup && atomic_load_explicit(
++            &macws_vnc_adapter_active, memory_order_acquire))
++        macws_vnc_start_pointer_proxy_once();
+ }
+ 
+ // RE-confirmed via the installed arm64 OSXvnc-server (2026-07-27):
+@@ -8901,7 +8908,7 @@
+ // protocol.
+ typedef void (*MacWSVNCRefreshCallback)(uint32_t, const CGRect *, void *);
+ static MacWSVNCRefreshCallback macws_vnc_refresh_callback = NULL;
+-typedef int (*MacWSRFBSendFramebufferUpdate)(void *, void *, void *);
++typedef int (*MacWSRFBSendFramebufferUpdate)(void *, MacWSVNCRegion);
+ static MacWSRFBSendFramebufferUpdate
+     macws_orig_rfb_send_framebuffer_update = NULL;
+ static __thread double macws_vnc_rfb_copy_milliseconds = 0.0;
+@@ -8912,7 +8919,7 @@
+ static double macws_vnc_event_timestamp_seconds(void);
+ static bool macws_vnc_fill_test(int rectX, int rectY,
+                                 int rectWidth, int rectHeight);
+-typedef int (*MacWSVNCReadExact)(void *, void *, int);
++typedef int (*MacWSVNCReadExact)(void *, void *, size_t);
+ typedef void (*MacWSVNCProcessNormalMessage)(void *);
+ static MacWSVNCReadExact macws_orig_vnc_read_exact = NULL;
+ static MacWSVNCProcessNormalMessage
+@@ -8929,7 +8936,7 @@
+ // delayed update can be attributed to input-queue latency or output wakeup
+ // from runtime timestamps instead of inference. No message bytes or return
+ // values are changed.
+-static int macws_new_vnc_read_exact(void *client, void *bytes, int length) {
++static int macws_new_vnc_read_exact(void *client, void *bytes, size_t length) {
+     int result = macws_orig_vnc_read_exact
+         ? macws_orig_vnc_read_exact(client, bytes, length) : -1;
+     if (result > 0 && bytes && length == 1 &&
+@@ -9096,30 +9103,15 @@
+     return NULL;
+ }
+ 
+-// RE-confirmed via the installed arm64 OSXvnc-server at
+-// __TEXT+0x14e38 (2026-07-29): rfbSendFramebufferUpdate receives the client in
+-// x0 and the RegionRec pair in x1/x2, increments client+0x1e4, reads the
+-// selected encoding at client+0x580, encodes each region, then flushes the
+-// update buffer. Time this exact boundary so capture/notification latency can
+-// be separated from server encoding/socket backpressure. Observation only;
+-// every argument and the original return value are preserved.
++// RE-confirmed in UUID AAC962B1... at __text+0x6c34: RegionRec is
++// passed by value in x1/x2. Use the actual 16-byte structure so the compiler
++// preserves inline BoxRec extents and the nullable RegData pointer.
+ static int macws_new_rfb_send_framebuffer_update(
+-        void *client, void *regionExtents, void *regionData) {
+-    typedef struct {
+-        int16_t x1;
+-        int16_t y1;
+-        int16_t x2;
+-        int16_t y2;
+-    } MacWSRFBBox;
+-    uint64_t regionCount = regionData
+-        ? *(const uint64_t *)((const char *)regionData + 0x8) : 1;
+-    // RE-confirmed at installed OSXvnc-server __TEXT+0x14e38: when the region
+-    // data pointer is NULL, x1 itself contains the one 8-byte BoxRec by value
+-    // and the function spills x1/x2 to sp+0x40 before iterating. It is not a
+-    // pointer. Preserve that ABI here by viewing our local x1-sized argument.
+-    const MacWSRFBBox *boxes = regionData
+-        ? (const MacWSRFBBox *)((const char *)regionData + 0x10)
+-        : (const MacWSRFBBox *)&regionExtents;
++        void *client, MacWSVNCRegion region) {
++    int64_t count = region.data ? region.data->numRects : 1;
++    uint64_t regionCount = count > 0 ? (uint64_t)count : 0;
++    const MacWSVNCBox *boxes = region.data
++        ? region.data->rects : &region.extents;
+     uint64_t regionPixels = 0;
+     int32_t boundsX1 = INT32_MAX, boundsY1 = INT32_MAX;
+     int32_t boundsX2 = INT32_MIN, boundsY2 = INT32_MIN;
+@@ -9196,7 +9188,7 @@
+     double started = diagnostics ? macws_vnc_monotonic_seconds() : 0.0;
+     int result = macws_orig_rfb_send_framebuffer_update
+         ? macws_orig_rfb_send_framebuffer_update(
+-            client, regionExtents, regionData) : 0;
++            client, region) : 0;
+     macws_vnc_rfb_prefetched = NO;
+     if (diagnostics) {
+         double elapsedMilliseconds =
+@@ -9915,8 +9907,20 @@
+         });
+ }
+ 
+-static void macws_new_vnc_handle_keyboard(id self, SEL command, BOOL down,
+-        unsigned int keySym, id client) {
++static void macws_new_vnc_handle_keyboard(id self, SEL command, int down,
++        uint64_t nativeKeySym, void *client) {
++    // This method's Bool is int and its KeySym is LP64 unsigned long.
++    // Preserve values outside our 32-bit wire contract in the native path;
++    // nested key/modifier hooks must not consume a silently truncated event.
++    if (!macws_vnc_key_fits_wire(down, nativeKeySym)) {
++        BOOL saved = macws_vnc_preserve_native_key_event;
++        macws_vnc_preserve_native_key_event = YES;
++        if (macws_orig_vnc_handle_keyboard)
++            macws_orig_vnc_handle_keyboard(self, command, down, nativeKeySym, client);
++        macws_vnc_preserve_native_key_event = saved;
++        return;
++    }
++    uint32_t keySym = (uint32_t)nativeKeySym;
+     macws_vnc_note_interaction();
+     if (down && keySym == 0xffe5u) {
+         BOOL active = atomic_load_explicit(
+@@ -9929,7 +9933,7 @@
+     unsigned int previousKeySym = macws_vnc_current_keysym;
+     macws_vnc_current_keysym = keySym;
+     if (macws_orig_vnc_handle_keyboard)
+-        macws_orig_vnc_handle_keyboard(self, command, down, keySym, client);
++        macws_orig_vnc_handle_keyboard(self, command, down, nativeKeySym, client);
+     macws_vnc_current_keysym = previousKeySym;
+     if (diagnostics) {
+         double elapsedMilliseconds =
+@@ -9979,6 +9983,11 @@
+ 
+ static void macws_new_vnc_send_key_event(id self, SEL command,
+         unsigned short keyCode, BOOL down, uint64_t modifiers) {
++    if (macws_vnc_preserve_native_key_event) {
++        if (macws_orig_vnc_send_key_event)
++            macws_orig_vnc_send_key_event(self, command, keyCode, down, modifiers);
++        return;
++    }
+     unsigned int keySym = macws_vnc_current_keysym;
+     BOOL routed = macws_vnc_native_all &&
+         macws_vnc_forward_key(keyCode, down, modifiers, keySym);
+@@ -10004,7 +10013,8 @@
+ 
+ static void macws_new_vnc_set_key_modifiers(id self, SEL command,
+                                             uint64_t modifiers) {
+-    if (!macws_vnc_native_all || macws_vnc_current_modifiers_offset < 0) {
++    if (macws_vnc_preserve_native_key_event ||
++        !macws_vnc_native_all || macws_vnc_current_modifiers_offset < 0) {
+         if (macws_orig_vnc_set_key_modifiers)
+             macws_orig_vnc_set_key_modifiers(self, command, modifiers);
+         return;
+@@ -10334,7 +10344,7 @@
+ }
+ 
+ static void macws_new_vnc_handle_mouse(id self, SEL command,
+-        unsigned int buttons, CGPoint point, id client) {
++        int buttons, CGPoint point, void *client) {
+     macws_vnc_note_interaction();
+     if (macws_vnc_input_mode == MacWSVNCInputModeScaleOnly) {
+         int scale = macws_vnc_integral_backing_scale();
+@@ -10944,149 +10954,351 @@
+     macws_vnc_fill_test(x, y, w, h);
+ }
+ 
++/* Preflight uses safe Mach VM reads before interpreting any load command.
++ * It returns only local prepared values: no hook/state/thread/socket writes. */
++typedef struct {
++    const struct mach_header *header;
++    void *publicTargets[MacWSVNCSymbolCount];
++    void *cgWidth, *cgHeight;
++    Method methods[5];
++    IMP implementations[5];
++    ptrdiff_t modifiersOffset;
++} MacWSVNCPrepared;
++
++static BOOL macws_vnc_memory_range(uintptr_t start,size_t length,
++                                  vm_prot_t required,BOOL forbidWrite) {
++    if (!length || start > UINTPTR_MAX-length) return NO;
++    uintptr_t cursor=start, end=start+length;
++    for (unsigned regions=0;cursor<end && regions<128;regions++) {
++        mach_vm_address_t address=cursor;
++        mach_vm_size_t size=0;
++        vm_region_basic_info_data_64_t info={0};
++        mach_msg_type_number_t count=VM_REGION_BASIC_INFO_COUNT_64;
++        mach_port_t object=MACH_PORT_NULL;
++        kern_return_t kr=mach_vm_region(mach_task_self(),&address,&size,
++            VM_REGION_BASIC_INFO_64,(vm_region_info_t)&info,&count,&object);
++        if (object != MACH_PORT_NULL) mach_port_deallocate(mach_task_self(),object);
++        if (kr != KERN_SUCCESS || !size || address>cursor ||
++            address>UINT64_MAX-size || address+size<=cursor ||
++            (info.protection & required)!=required ||
++            (forbidWrite && (info.protection & VM_PROT_WRITE))) return NO;
++        cursor=(uintptr_t)(address+size<end ? address+size : end);
++    }
++    return cursor==end;
++}
++
++static BOOL macws_vnc_safe_read(const void *source,void *destination,size_t size) {
++    if (!macws_vnc_memory_range((uintptr_t)source,size,VM_PROT_READ,NO)) return NO;
++    mach_vm_size_t copied=0;
++    return mach_vm_read_overwrite(mach_task_self(),(mach_vm_address_t)source,
++        size,(mach_vm_address_t)destination,&copied)==KERN_SUCCESS && copied==size;
++}
++
++static uint8_t *macws_vnc_copy_commands(const struct mach_header *header,
++                                        size_t *length) {
++    struct mach_header_64 local={0};
++    if (!header || !length || !macws_vnc_safe_read(header,&local,sizeof(local)) ||
++        local.magic!=MH_MAGIC_64 || !local.ncmds || local.ncmds>128 ||
++        !local.sizeofcmds || local.sizeofcmds>65536) return NULL;
++    *length=sizeof(local)+local.sizeofcmds;
++    uint8_t *copy=malloc(*length);
++    if (copy && !macws_vnc_safe_read(header,copy,*length)) {
++        free(copy); copy=NULL;
++    }
++    return copy;
++}
++
++static void *macws_vnc_code_address(const void *pointer) {
++#if __has_feature(ptrauth_calls)
++    return ptrauth_strip((void *)pointer,ptrauth_key_function_pointer);
++#else
++    return (void *)pointer;
++#endif
++}
++
++static BOOL macws_vnc_main_target(const MacWSVNCPrepared *prepared,
++        const MacWSVNCImageProfile *profile,const void *pointer,
++        uint64_t offset,size_t extent,BOOL code) {
++    void *address=code ? macws_vnc_code_address(pointer) : (void *)pointer;
++    uintptr_t base=(uintptr_t)prepared->header, target=(uintptr_t)address;
++    Dl_info owner={0};
++    return address && target>=base && target-base==offset &&
++        macws_vnc_target_offset(profile,offset,extent,code) &&
++        dladdr(address,&owner) && owner.dli_fbase==(void *)prepared->header &&
++        macws_vnc_memory_range(target,extent,
++            code ? (VM_PROT_READ|VM_PROT_EXECUTE) : (VM_PROT_READ|VM_PROT_WRITE),code);
++}
++
++/* Standard CoreGraphics API endpoints also need a real provider and RX
++ * mapping. Their SDK ABI is stable; they do not use the main-image profile. */
++static BOOL macws_vnc_cg_api(void *pointer,const char *symbol,void **ownerOut) {
++    void *address=macws_vnc_code_address(pointer);
++    Dl_info owner={0};
++    if (!address || !dladdr(address,&owner) || !owner.dli_fbase ||
++        !owner.dli_fname || !owner.dli_sname || strcmp(owner.dli_sname,symbol) ||
++        macws_vnc_code_address(owner.dli_saddr)!=address ||
++        !strstr(owner.dli_fname,"/CoreGraphics.framework/") ||
++        strcmp(strrchr(owner.dli_fname,'/') ?: owner.dli_fname,"/CoreGraphics") ||
++        !macws_vnc_memory_range((uintptr_t)address,32,
++                               VM_PROT_READ|VM_PROT_EXECUTE,YES)) return NO;
++    size_t length=0;
++    uint8_t *copy=macws_vnc_copy_commands(owner.dli_fbase,&length);
++    if (!copy) return NO;
++    const struct mach_header_64 *header=(const struct mach_header_64 *)copy;
++    BOOL valid=header->filetype==MH_DYLIB && header->cputype==CPU_TYPE_ARM64;
++    BOOL inCode=NO;
++    size_t cursor=sizeof(*header);
++    for (uint32_t i=0;valid && i<header->ncmds;i++) {
++        if (length-cursor<sizeof(struct load_command)) { valid=NO; break; }
++        const struct load_command *cmd=(const struct load_command *)(copy+cursor);
++        if (cmd->cmdsize<8 || (cmd->cmdsize & 7) || cmd->cmdsize>length-cursor) {
++            valid=NO; break;
++        }
++        if (cmd->cmd==LC_SEGMENT_64) {
++            if (cmd->cmdsize<sizeof(struct segment_command_64)) { valid=NO; break; }
++            const struct segment_command_64 *seg=(const void *)cmd;
++            if (seg->vmaddr>UINT64_MAX-seg->vmsize ||
++                seg->nsects>(cmd->cmdsize-sizeof(*seg))/sizeof(struct section_64)) {
++                valid=NO; break;
++            }
++            const struct section_64 *sections=(const void *)(seg+1);
++            for (uint32_t j=0;j<seg->nsects;j++) {
++                const struct section_64 *s=sections+j;
++                if (!(s->flags & (S_ATTR_PURE_INSTRUCTIONS|S_ATTR_SOME_INSTRUCTIONS)) ||
++                    !(seg->initprot & VM_PROT_EXECUTE)) continue;
++                intptr_t slide=0;
++                BOOL found=NO;
++                for (uint32_t k=0;k<_dyld_image_count();k++) {
++                    if (_dyld_get_image_header(k)==owner.dli_fbase) {
++                        slide=_dyld_get_image_vmaddr_slide(k); found=YES; break;
++                    }
++                }
++                uint64_t actual=(uint64_t)((uintptr_t)owner.dli_fbase);
++                if (!found || s->addr<seg->vmaddr || s->size>seg->vmsize ||
++                    s->addr-seg->vmaddr>seg->vmsize-s->size ||
++                    (slide>=0 && s->addr>UINT64_MAX-(uint64_t)slide) ||
++                    (slide<0 && s->addr<(uint64_t)(-(slide+1))+1)) continue;
++                actual=slide>=0 ? s->addr+(uint64_t)slide
++                               : s->addr-((uint64_t)(-(slide+1))+1);
++                if (macws_vnc_span((uintptr_t)address,32,actual,s->size)) inCode=YES;
++            }
++        }
++        cursor+=cmd->cmdsize;
++    }
++    valid=valid && cursor==length && inCode;
++    free(copy);
++    if (valid && ownerOut) *ownerOut=owner.dli_fbase;
++    return valid;
++}
++
++static BOOL macws_vnc_method_types(Method method,unsigned int count,
++                                    const char *const *arguments) {
++    if (!method || method_getNumberOfArguments(method)!=count) return NO;
++    char *returnType=method_copyReturnType(method);
++    BOOL valid=returnType && strcmp(returnType,"v")==0;
++    free(returnType);
++    for (unsigned i=0;valid && i<count;i++) {
++        char *type=method_copyArgumentType(method,i);
++        valid=type && strcmp(type,arguments[i])==0;
++        free(type);
++    }
++    return valid;
++}
++
++static BOOL macws_vnc_prepare(MacWSVNCPrepared *prepared,const char **failure) {
++    #define MACWS_VNC_REJECT(reason) do { *failure=(reason); return NO; } while (0)
++    memset(prepared,0,sizeof(*prepared));
++    /* Index zero explicitly selects dyld's main executable, never a fallback
++     * after an image-name search. Its identity must satisfy the whole profile. */
++    prepared->header=_dyld_get_image_header(0);
++    const char *path=_dyld_get_image_name(0);
++    const char *leaf=path ? strrchr(path,'/') : NULL;
++    if (!path || strcmp(leaf ? leaf+1 : path,"OSXvnc-server")) MACWS_VNC_REJECT("main-path");
++    size_t length=0;
++    uint8_t *copy=macws_vnc_copy_commands(prepared->header,&length);
++    MacWSVNCImageProfile profile={0};
++    BOOL known=copy && macws_vnc_parse_profile(copy,length,&profile);
++    free(copy);
++    if (!known) MACWS_VNC_REJECT("uuid-cpu-filetype-layout");
++    uintptr_t base=(uintptr_t)prepared->header;
++    if (base>UINTPTR_MAX-profile.textOffset ||
++        !macws_vnc_memory_range(base+profile.textOffset,profile.textSize,
++                               VM_PROT_READ|VM_PROT_EXECUTE,YES)) MACWS_VNC_REJECT("code-mapping");
++    uint8_t digest[CC_SHA256_DIGEST_LENGTH];
++    if (!CC_SHA256((const void *)(base+profile.textOffset),(CC_LONG)profile.textSize,digest) ||
++        memcmp(digest,macws_vnc_profile_text_sha256,sizeof(digest))) MACWS_VNC_REJECT("code-digest");
++    for (unsigned i=0;i<MacWSVNCSymbolCount;i++) {
++        const MacWSVNCPublicEntry *entry=&macws_vnc_public_profile[i];
++        void *target=dlsym(RTLD_DEFAULT,entry->name);
++        if (!macws_vnc_main_target(prepared,&profile,target,entry->offset,
++                                  entry->extent,entry->code)) MACWS_VNC_REJECT(entry->name);
++        prepared->publicTargets[i]=entry->code ? macws_vnc_code_address(target) : target;
++    }
++    if (base>UINTPTR_MAX-MACWS_VNC_SCALE_OFFSET ||
++        !macws_vnc_main_target(prepared,&profile,(void *)(base+MACWS_VNC_SCALE_OFFSET),
++            MACWS_VNC_SCALE_OFFSET,sizeof(double),NO)) MACWS_VNC_REJECT("static-displayScale");
++    prepared->cgWidth=dlsym(RTLD_DEFAULT,"CGDisplayPixelsWide");
++    prepared->cgHeight=dlsym(RTLD_DEFAULT,"CGDisplayPixelsHigh");
++    void *widthOwner=NULL,*heightOwner=NULL;
++    if (!macws_vnc_cg_api(prepared->cgWidth,"CGDisplayPixelsWide",&widthOwner) ||
++        !macws_vnc_cg_api(prepared->cgHeight,"CGDisplayPixelsHigh",&heightOwner) ||
++        widthOwner!=heightOwner) MACWS_VNC_REJECT("CoreGraphics-endpoints");
++    Class serverClass=objc_getClass("VNCServer");
++    Dl_info classOwner={0};
++    const char *classImage=serverClass ? class_getImageName(serverClass) : NULL;
++    if (!serverClass || !classImage || strcmp(classImage,path) ||
++        !dladdr((void *)serverClass,&classOwner) ||
++        classOwner.dli_fbase!=(void *)prepared->header ||
++        class_getInstanceSize(serverClass)!=MACWS_VNC_INSTANCE_SIZE) MACWS_VNC_REJECT("VNCServer-class");
++    static const char *selectors[]={"rfbStartup:","handleMouseButtons:atPoint:forClient:",
++        "handleKeyboard:forSym:forClient:","setKeyModifiers:","sendKeyEvent:down:modifiers:"};
++    static const uint64_t offsets[]={0x1f968,0x1ffec,0x20160,0x204f8,0x20630};
++    const char *startup[]={"@",":",macws_vnc_server_argument_type};
++    const char *mouse[]={"@",":","i","{CGPoint=dd}",macws_vnc_client_argument_type};
++    const char *keyboard[]={"@",":","i","Q",macws_vnc_client_argument_type};
++    const char *modifiers[]={"@",":","Q"};
++    const char *key[]={"@",":","S","B","Q"};
++    const char *const *arguments[]={startup,mouse,keyboard,modifiers,key};
++    const unsigned counts[]={3,5,5,3,5};
++    unsigned ownMethodCount=0;
++    Method *ownMethods=class_copyMethodList(serverClass,&ownMethodCount);
++    if (!ownMethods) MACWS_VNC_REJECT("VNCServer-own-methods");
++    for (unsigned i=0;i<5;i++) {
++        SEL selector=sel_registerName(selectors[i]);
++        Method method=class_getInstanceMethod(serverClass,selector);
++        BOOL own=NO;
++        for (unsigned j=0;j<ownMethodCount;j++) if (ownMethods[j]==method) own=YES;
++        IMP implementation=method ? method_getImplementation(method) : NULL;
++        if (!own || !macws_vnc_method_types(method,counts[i],arguments[i]) ||
++            !macws_vnc_main_target(prepared,&profile,(const void *)implementation,offsets[i],32,YES)) {
++            free(ownMethods); MACWS_VNC_REJECT(selectors[i]);
++        }
++        prepared->methods[i]=method; prepared->implementations[i]=implementation;
++    }
++    free(ownMethods);
++    Ivar ivar=class_getInstanceVariable(serverClass,"currentModifiers");
++    const char *ivarType=ivar ? ivar_getTypeEncoding(ivar) : NULL;
++    ptrdiff_t offset=ivar ? ivar_getOffset(ivar) : -1;
++    unsigned ownIvarCount=0;
++    Ivar *ownIvars=class_copyIvarList(serverClass,&ownIvarCount);
++    BOOL own=NO;
++    for (unsigned i=0;ownIvars && i<ownIvarCount;i++) if (ownIvars[i]==ivar) own=YES;
++    free(ownIvars);
++    if (!own || !ivarType || strcmp(ivarType,"Q") || offset!=MACWS_VNC_MODIFIERS_OFFSET ||
++        offset<0 || (offset & 7) || (size_t)offset>class_getInstanceSize(serverClass)-sizeof(uint64_t))
++        MACWS_VNC_REJECT("currentModifiers-ivar");
++    prepared->modifiersOffset=offset;
++    return YES;
++    #undef MACWS_VNC_REJECT
++}
++
+ static void macws_install_osxvnc_hooks(void) {
+-    const char *prog = getprogname();
+-    if (!prog || !strstr(prog, "OSXvnc")) return;
+-    macws_vnc_test_on = (access("/tmp/macws_vnc_test", F_OK) == 0);
+-    // A VNC process always consumes the shared-frame backend. Optional
+-    // --no-vnc sessions disable only WindowServer's CPU publisher through
+-    // its launch configuration; this reader never needs an enable marker.
+-    macws_vnc_share_on = 1;
+-    const char *inputMode = getenv("MACWS_VNC_INPUT_MODE");
+-    macws_vnc_native_all = getenv("MACWS_VNC_NATIVE_ALL") != NULL ||
+-        access("/tmp/macws_vnc_native_all", F_OK) == 0;
+-    if (inputMode && strcmp(inputMode, "stock") == 0) {
+-        macws_vnc_input_mode = MacWSVNCInputModeStock;
+-        macws_vnc_native_all = NO;
+-    } else if (inputMode && strcmp(inputMode, "scale-only") == 0) {
+-        macws_vnc_input_mode = MacWSVNCInputModeScaleOnly;
+-        macws_vnc_native_all = NO;
+-    } else if ((inputMode && strcmp(inputMode, "hybrid") == 0) ||
+-               macws_vnc_native_all) {
+-        macws_vnc_input_mode = MacWSVNCInputModeHybrid;
+-        macws_vnc_native_all = YES;
+-    } else {
+-        // Preserve the pre-input-hook baseline when no input policy was
+-        // requested. Framebuffer delivery remains installed below.
+-        macws_vnc_input_mode = MacWSVNCInputModeStock;
+-    }
+-    const struct mach_header *mh = NULL;
+-    uint32_t n = _dyld_image_count();
+-    for (uint32_t i = 0; i < n; i++) {
+-        const char *nm = _dyld_get_image_name(i);
+-        if (nm && strstr(nm, "OSXvnc-server")) { mh = _dyld_get_image_header(i); break; }
+-    }
+-    if (!mh) mh = _dyld_get_image_header(0);
+-    if (!mh) return;
+-    char *base = (char *)mh;
+-    macws_rfbScreen = (int *)(base + 0x79bf8);
+-    macws_rfbBackingScale = (double *)(base + 0x7a1e8);
+-    BOOL traceClientMessages =
+-        getenv("MACWS_VNC_TRACE_CLIENT_MESSAGES") != NULL;
++    const char *prog=getprogname();
++    if (!prog || !strstr(prog,"OSXvnc")) return;
++    if (atomic_load_explicit(&macws_vnc_adapter_active,memory_order_acquire)) return;
++    bool nativeCG=false;
++    if (!macws_vnc_select_frame_backend(
++            getenv("MACWS_VNC_FRAME_BACKEND"),&nativeCG)) {
++        fprintf(stderr,"#### OSXVNC ADAPTER rejected stage=frame-backend; expected native-cg or shared-mmap; hooks/state/watchers untouched\n");
++        return;
++    }
++    MacWSVNCPrepared prepared={0};
++    const char *failure="unspecified";
++    if (!macws_vnc_prepare(&prepared,&failure)) {
++        fprintf(stderr,"#### OSXVNC ADAPTER rejected stage=%s; VNC hooks/state/watchers untouched\n",failure);
++        return;
++    }
++    // Prepare the policy locally. All code, data, APIs, class/method types
++    // and ivar extents are validated before any VNC mutation below.
++    int testOn=access("/tmp/macws_vnc_test",F_OK)==0;
++    const char *inputMode=getenv("MACWS_VNC_INPUT_MODE");
++    BOOL nativeAll=getenv("MACWS_VNC_NATIVE_ALL")!=NULL ||
++        access("/tmp/macws_vnc_native_all",F_OK)==0;
++    MacWSVNCInputMode mode=MacWSVNCInputModeStock;
++    if (inputMode && strcmp(inputMode,"stock")==0) nativeAll=NO;
++    else if (inputMode && strcmp(inputMode,"scale-only")==0) {
++        mode=MacWSVNCInputModeScaleOnly; nativeAll=NO;
++    } else if ((inputMode && strcmp(inputMode,"hybrid")==0) || nativeAll) {
++        mode=MacWSVNCInputModeHybrid; nativeAll=YES;
++    }
++    BOOL traceClientMessages=getenv("MACWS_VNC_TRACE_CLIENT_MESSAGES")!=NULL;
++
++    // Substrate exposes no transaction/rollback result here. A missing
++    // trampoline after a requested hook terminates this VNC process before
++    // main/startup, rather than publishing readiness after a partial install.
++    #define MACWS_VNC_HOOK(target,replacement,original) do { \
++        MSHookFunction((target),(void *)(replacement),(void **)&(original)); \
++        void *trampoline=macws_vnc_code_address((void *)(original)); \
++        if (!trampoline || trampoline==macws_vnc_code_address((target)) || \
++            trampoline==macws_vnc_code_address((void *)(replacement)) || \
++            !macws_vnc_memory_range((uintptr_t)trampoline,4, \
++                                    VM_PROT_READ|VM_PROT_EXECUTE,NO)) { \
++            failure="invalid-original-trampoline"; goto failed; \
++        } \
++    } while (0)
+     if (traceClientMessages) {
+-        MSHookFunction(base + 0x169d8,
+-            (void *)macws_new_vnc_read_exact,
+-            (void **)&macws_orig_vnc_read_exact);
+-        MSHookFunction(base + 0x14380,
+-            (void *)macws_new_vnc_process_normal_message,
+-            (void **)&macws_orig_vnc_process_normal_message);
+-    }
+-    MSHookFunction(base + 0xd114,
+-        (void *)macws_new_vnc_refresh_callback,
+-        (void **)&macws_vnc_refresh_callback);
+-    void *cgWidth = dlsym(RTLD_DEFAULT, "CGDisplayPixelsWide");
+-    void *cgHeight = dlsym(RTLD_DEFAULT, "CGDisplayPixelsHigh");
+-    if (cgWidth) MSHookFunction(cgWidth,
+-        (void *)macws_new_CGDisplayPixelsWide,
+-        (void **)&macws_orig_CGDisplayPixelsWide);
+-    if (cgHeight) MSHookFunction(cgHeight,
+-        (void *)macws_new_CGDisplayPixelsHigh,
+-        (void **)&macws_orig_CGDisplayPixelsHigh);
+-    MSHookFunction(base + 0xd9d4, (void *)macws_new_rfbGetFB,     (void **)&macws_orig_rfbGetFB);
+-    MSHookFunction(base + 0xdc28, (void *)macws_new_rfbGetFBRect, (void **)&macws_orig_rfbGetFBRect);
+-    MSHookFunction(base + 0x14e38,
+-        (void *)macws_new_rfb_send_framebuffer_update,
+-        (void **)&macws_orig_rfb_send_framebuffer_update);
+-    Class serverClass = objc_getClass("VNCServer");
+-    Method startupMethod = serverClass ? class_getInstanceMethod(serverClass,
+-        sel_registerName("rfbStartup:")) : NULL;
+-    if (startupMethod) {
+-        macws_orig_vnc_rfb_startup =
+-            (MacWSVNCRFBStartup)method_getImplementation(startupMethod);
+-        method_setImplementation(startupMethod,
+-                                 (IMP)macws_new_vnc_rfb_startup);
+-    }
+-    Method mouseMethod = serverClass ? class_getInstanceMethod(serverClass,
+-        sel_registerName("handleMouseButtons:atPoint:forClient:")) : NULL;
+-    if (mouseMethod && macws_vnc_input_mode != MacWSVNCInputModeStock) {
+-        macws_orig_vnc_handle_mouse =
+-            (MacWSVNCHandleMouse)method_getImplementation(mouseMethod);
+-        method_setImplementation(mouseMethod, (IMP)macws_new_vnc_handle_mouse);
+-    }
+-    Method sendKeyMethod = serverClass ? class_getInstanceMethod(serverClass,
+-        sel_registerName("sendKeyEvent:down:modifiers:")) : NULL;
+-    if (sendKeyMethod && macws_vnc_input_mode == MacWSVNCInputModeHybrid) {
+-        macws_orig_vnc_send_key_event =
+-            (MacWSVNCSendKeyEvent)method_getImplementation(sendKeyMethod);
+-        method_setImplementation(sendKeyMethod,
+-                                 (IMP)macws_new_vnc_send_key_event);
+-    }
+-    Method setKeyModifiersMethod = serverClass ? class_getInstanceMethod(
+-        serverClass, sel_registerName("setKeyModifiers:")) : NULL;
+-    Ivar currentModifiersIvar = serverClass ? class_getInstanceVariable(
+-        serverClass, "currentModifiers") : NULL;
+-    if (setKeyModifiersMethod && currentModifiersIvar &&
+-        macws_vnc_input_mode == MacWSVNCInputModeHybrid) {
+-        macws_vnc_current_modifiers_offset =
+-            ivar_getOffset(currentModifiersIvar);
+-        macws_orig_vnc_set_key_modifiers =
+-            (MacWSVNCSetKeyModifiers)method_getImplementation(
+-                setKeyModifiersMethod);
+-        method_setImplementation(setKeyModifiersMethod,
+-                                 (IMP)macws_new_vnc_set_key_modifiers);
+-    }
+-    Method keyboardMethod = serverClass ? class_getInstanceMethod(serverClass,
+-        sel_registerName("handleKeyboard:forSym:forClient:")) : NULL;
+-    if (keyboardMethod && macws_vnc_input_mode == MacWSVNCInputModeHybrid) {
+-        macws_orig_vnc_handle_keyboard =
+-            (MacWSVNCHandleKeyboard)method_getImplementation(keyboardMethod);
+-        method_setImplementation(keyboardMethod,
+-                                 (IMP)macws_new_vnc_handle_keyboard);
+-    }
+-    if (macws_vnc_share_on && macws_vnc_refresh_callback) {
+-        pthread_t damageListener;
+-        int damageError = pthread_create(
+-            &damageListener, NULL, macws_vnc_damage_listener, NULL);
+-        if (damageError == 0) pthread_detach(damageListener);
+-        else fprintf(stderr,
+-            "#### OSXVNC DAMAGE listener thread failed error=%d\n",
+-            damageError);
+-        pthread_t watcher;
+-        int watcherError = pthread_create(
+-            &watcher, NULL, macws_vnc_generation_watcher, NULL);
+-        if (watcherError == 0) pthread_detach(watcher);
+-        else fprintf(stderr,
+-            "#### OSXVNC mmap generation watcher failed error=%d\n",
+-            watcherError);
+-    }
+-    const char *inputModeName = macws_vnc_input_mode == MacWSVNCInputModeStock
+-        ? "stock" : (macws_vnc_input_mode == MacWSVNCInputModeScaleOnly
+-            ? "scale-only" : "hybrid");
+-    fprintf(stderr, "#### OSXVNC delivery hooks installed (test=%d share=%d input-mode=%s native-all=%d client-trace=%d proxy-startup=%s input=%s keyboard=%s key-map=%s key-modifiers=%s modifiers-offset=%td) base=%p rfbScreen=%p\n",
+-            macws_vnc_test_on, macws_vnc_share_on, inputModeName,
+-            macws_vnc_native_all,
+-            traceClientMessages,
+-            startupMethod ? "YES" : "NO",
+-            mouseMethod && macws_vnc_input_mode != MacWSVNCInputModeStock
+-                ? "YES" : "NO",
+-            keyboardMethod && macws_vnc_input_mode == MacWSVNCInputModeHybrid
+-                ? "YES" : "NO",
+-            sendKeyMethod && macws_vnc_input_mode == MacWSVNCInputModeHybrid
+-                ? "YES" : "NO",
+-            setKeyModifiersMethod && currentModifiersIvar &&
+-                macws_vnc_input_mode == MacWSVNCInputModeHybrid ? "YES" : "NO",
+-            macws_vnc_current_modifiers_offset,
+-            (void *)mh, (void *)macws_rfbScreen);
++        MACWS_VNC_HOOK(prepared.publicTargets[MacWSVNCSymbolReadExact],macws_new_vnc_read_exact,macws_orig_vnc_read_exact);
++        MACWS_VNC_HOOK(prepared.publicTargets[MacWSVNCSymbolNormalMessage],macws_new_vnc_process_normal_message,macws_orig_vnc_process_normal_message);
++    }
++    if (!nativeCG) {
++        // The opt-in native-CG profile leaves every stock frame/geometry/
++        // damage function untouched; no frame hook is requested for that
++        // profile, and no mmap read is attempted through those entry points.
++        MACWS_VNC_HOOK(prepared.publicTargets[MacWSVNCSymbolRefresh],macws_new_vnc_refresh_callback,macws_vnc_refresh_callback);
++        MACWS_VNC_HOOK(macws_vnc_code_address(prepared.cgWidth),macws_new_CGDisplayPixelsWide,macws_orig_CGDisplayPixelsWide);
++        MACWS_VNC_HOOK(macws_vnc_code_address(prepared.cgHeight),macws_new_CGDisplayPixelsHigh,macws_orig_CGDisplayPixelsHigh);
++        MACWS_VNC_HOOK(prepared.publicTargets[MacWSVNCSymbolGetFramebuffer],macws_new_rfbGetFB,macws_orig_rfbGetFB);
++        MACWS_VNC_HOOK(prepared.publicTargets[MacWSVNCSymbolGetRectangle],macws_new_rfbGetFBRect,macws_orig_rfbGetFBRect);
++        MACWS_VNC_HOOK(prepared.publicTargets[MacWSVNCSymbolSendUpdate],macws_new_rfb_send_framebuffer_update,macws_orig_rfb_send_framebuffer_update);
++    }
++    #undef MACWS_VNC_HOOK
++
++    macws_rfbScreen=prepared.publicTargets[MacWSVNCSymbolScreen];
++    macws_rfbBackingScale=(double *)((uintptr_t)prepared.header+MACWS_VNC_SCALE_OFFSET);
++    macws_vnc_current_modifiers_offset=prepared.modifiersOffset;
++    macws_orig_vnc_rfb_startup=(MacWSVNCRFBStartup)prepared.implementations[0];
++    macws_orig_vnc_handle_mouse=(MacWSVNCHandleMouse)prepared.implementations[1];
++    macws_orig_vnc_handle_keyboard=(MacWSVNCHandleKeyboard)prepared.implementations[2];
++    macws_orig_vnc_set_key_modifiers=(MacWSVNCSetKeyModifiers)prepared.implementations[3];
++    macws_orig_vnc_send_key_event=(MacWSVNCSendKeyEvent)prepared.implementations[4];
++    macws_vnc_test_on=nativeCG ? 0 : testOn;
++    macws_vnc_share_on=nativeCG ? 0 : 1;
++    macws_vnc_input_mode=mode;
++    macws_vnc_native_all=nativeAll;
++    #define MACWS_VNC_METHOD(index,replacement) do { \
++        IMP previous=method_setImplementation(prepared.methods[(index)],(IMP)(replacement)); \
++        if (macws_vnc_code_address((void *)previous)!= \
++            macws_vnc_code_address((void *)prepared.implementations[(index)])) { \
++            failure="method-changed-during-install"; goto failed; \
++        } \
++    } while (0)
++    if (mode!=MacWSVNCInputModeStock) MACWS_VNC_METHOD(1,macws_new_vnc_handle_mouse);
++    if (mode==MacWSVNCInputModeHybrid) {
++        MACWS_VNC_METHOD(2,macws_new_vnc_handle_keyboard);
++        MACWS_VNC_METHOD(3,macws_new_vnc_set_key_modifiers);
++        MACWS_VNC_METHOD(4,macws_new_vnc_send_key_event);
++    }
++    // The real startup hook is installed last. Its proxy gate remains closed
++    // until every selected hook has supplied its original implementation.
++    MACWS_VNC_METHOD(0,macws_new_vnc_rfb_startup);
++    #undef MACWS_VNC_METHOD
++    atomic_store_explicit(&macws_vnc_adapter_active,YES,memory_order_release);
++    if (!nativeCG) {
++        pthread_t listener,watcher;
++        int damageError=pthread_create(&listener,NULL,macws_vnc_damage_listener,NULL);
++        if (!damageError) pthread_detach(listener);
++        else fprintf(stderr,"#### OSXVNC DAMAGE listener thread failed error=%d\n",damageError);
++        int watcherError=pthread_create(&watcher,NULL,macws_vnc_generation_watcher,NULL);
++        if (!watcherError) pthread_detach(watcher);
++        else fprintf(stderr,"#### OSXVNC mmap watcher thread failed error=%d\n",watcherError);
++    }
++    fprintf(stderr,"#### OSXVNC ADAPTER reviewed profile AAC962B1: hook requests returned original pointers; real startup/pixels/input remain unverified mode=%d trace=%d frame-backend=%s\n",mode,traceClientMessages,nativeCG ? "native-cg" : "shared-mmap");
++    return;
++failed:
++    atomic_store_explicit(&macws_vnc_adapter_active,NO,memory_order_release);
++    fprintf(stderr,"#### OSXVNC ADAPTER incomplete stage=%s; terminating before startup\n",failure);
++    fflush(stderr);
++    _exit(78);
+ }
+ 
+ extern void MacWSInstallExtensionRuntimeCompatibility(void);
+--- /dev/null
++++ b/include/macws_vnc_profile.h
+@@ -0,0 +1,182 @@
++#ifndef MACWS_VNC_PROFILE_H
++#define MACWS_VNC_PROFILE_H
++
++#include <stdbool.h>
++#include <stddef.h>
++#include <stdint.h>
++#include <string.h>
++
++/* One RE-reviewed ARM64/ALL OSXvnc build; no historical-offset fallback.
++ * All offsets are relative to the loaded Mach header. Signature-only changes
++ * may resize LINKEDIT, but must not change the UUID/code/data/ObjC contract. */
++static const uint8_t macws_vnc_profile_uuid[16] = {
++    0xaa,0xc9,0x62,0xb1,0x0a,0x40,0x34,0xb7,
++    0xbe,0xd3,0x4b,0xbc,0xf0,0xc4,0xd7,0xe3
++};
++static const uint8_t macws_vnc_profile_text_sha256[32] = {
++    0x78,0x4b,0x08,0xf0,0xca,0xe3,0xaa,0x34,
++    0xc1,0xbe,0xce,0x3c,0x7b,0x77,0x73,0x96,
++    0x9f,0xb8,0xee,0xba,0xa6,0xaa,0xab,0x9e,
++    0x11,0xa6,0x76,0xfe,0x7d,0x00,0xbb,0xcb
++};
++
++enum { MacWSVNCSymbolScreen, MacWSVNCSymbolRefresh, MacWSVNCSymbolGetFramebuffer,
++       MacWSVNCSymbolGetRectangle, MacWSVNCSymbolSendUpdate, MacWSVNCSymbolReadExact,
++       MacWSVNCSymbolNormalMessage, MacWSVNCSymbolCount };
++typedef struct { const char *name; uint64_t offset; size_t extent; bool code; }
++    MacWSVNCPublicEntry;
++static const MacWSVNCPublicEntry macws_vnc_public_profile[] = {
++    {"rfbScreen",0x61530,24,false}, {"refreshCallback",0x2e18,32,true},
++    {"rfbGetFramebuffer",0x3674,32,true},
++    {"rfbGetFramebufferUpdateInRect",0x38a0,32,true},
++    {"rfbSendFramebufferUpdate",0x6c34,32,true},
++    {"ReadExact",0xbeac,32,true}, {"rfbProcessClientNormalMessage",0x6188,32,true}
++};
++#define MACWS_VNC_SCALE_OFFSET UINT64_C(0x616b0)
++#define MACWS_VNC_MODIFIERS_OFFSET 0x60
++#define MACWS_VNC_INSTANCE_SIZE 0x30078
++
++typedef struct { int16_t x1,y1,x2,y2; } MacWSVNCBox;
++typedef struct { int64_t size, numRects; MacWSVNCBox rects[]; }
++    MacWSVNCRegionData;
++typedef struct { MacWSVNCBox extents; MacWSVNCRegionData *data; }
++    MacWSVNCRegion;
++_Static_assert(sizeof(MacWSVNCBox) == 8, "reviewed BoxRec ABI");
++_Static_assert(sizeof(MacWSVNCRegion) == 16 &&
++               offsetof(MacWSVNCRegion,data) == 8, "reviewed RegionRec ABI");
++_Static_assert(offsetof(MacWSVNCRegionData,rects) == 16,
++               "reviewed RegData ABI");
++
++static inline bool macws_vnc_key_fits_wire(int down, uint64_t keysym) {
++    return (down == 0 || down == 1) && keysym <= UINT32_MAX;
++}
++/* A separate, explicit diagnostic backend choice. Absence retains the full
++ * shared-mmap profile. Unknown values leave the local output untouched and
++ * are rejected by the installer before any hook/state/thread/socket work. */
++static inline bool macws_vnc_select_frame_backend(const char *value,
++                                                   bool *nativeCG) {
++    if (!nativeCG) return false;
++    if (!value || strcmp(value,"shared-mmap") == 0) {
++        *nativeCG=false;
++        return true;
++    }
++    if (strcmp(value,"native-cg") == 0) {
++        *nativeCG=true;
++        return true;
++    }
++    return false;
++}
++static inline bool macws_vnc_span(uint64_t start, uint64_t count,
++                                   uint64_t base, uint64_t span) {
++    return count != 0 && start >= base && start - base <= span &&
++           count <= span - (start - base) && start <= UINT64_MAX - count;
++}
++static inline uint32_t macws_vnc_u32(const uint8_t *p) {
++    uint32_t v; memcpy(&v,p,4); return v;
++}
++static inline uint64_t macws_vnc_u64(const uint8_t *p) {
++    uint64_t v; memcpy(&v,p,8); return v;
++}
++static inline bool macws_vnc_name16(const uint8_t *p,const char *name) {
++    size_t length = strlen(name);
++    return length < 16 && memcmp(p,name,length) == 0 && p[length] == 0;
++}
++
++typedef struct { uint64_t textOffset,textSize; } MacWSVNCImageProfile;
++/* Input is a SAFE COPY of exactly header+sizeofcmds, never arbitrary VM.
++ * This routine binds every segment/section geometry used by the adapter.
++ * Runtime separately checks actual VM permissions and the full code digest. */
++static inline bool macws_vnc_parse_profile(const uint8_t *b,size_t length,
++                                           MacWSVNCImageProfile *out) {
++    if (!b || !out || length < 32 || macws_vnc_u32(b) != 0xfeedfacf ||
++        macws_vnc_u32(b+4) != 0x100000c || macws_vnc_u32(b+8) != 0 ||
++        macws_vnc_u32(b+12) != 2) return false;
++    uint32_t count = macws_vnc_u32(b+16), bytes = macws_vnc_u32(b+20);
++    if (!count || count > 128 || bytes > 65536 ||
++        bytes != length-32) return false;
++    size_t cursor = 32;
++    unsigned segments = 0, sections = 0, uuids = 0;
++    for (uint32_t i=0;i<count;i++) {
++        if (cursor > length || length-cursor < 8) return false;
++        const uint8_t *command=b+cursor;
++        uint32_t kind=macws_vnc_u32(command), size=macws_vnc_u32(command+4);
++        if (size < 8 || (size & 7) || size > length-cursor) return false;
++        if (kind == 0x1b) {
++            if (size != 24 || ++uuids != 1 ||
++                memcmp(command+8,macws_vnc_profile_uuid,16)) return false;
++        } else if (kind == 0x19) {
++            if (size < 72) return false;
++            uint64_t vm=macws_vnc_u64(command+24), span=macws_vnc_u64(command+32);
++            uint64_t file=macws_vnc_u64(command+40), stored=macws_vnc_u64(command+48);
++            uint32_t maxprot=macws_vnc_u32(command+56), prot=macws_vnc_u32(command+60);
++            uint32_t nsections=macws_vnc_u32(command+64);
++            if (span > UINT64_MAX-vm || stored > span ||
++                stored > UINT64_MAX-file || nsections > (size-72)/80 ||
++                size != 72+(size_t)nsections*80) return false;
++            unsigned bit=0;
++            if (macws_vnc_name16(command+8,"__PAGEZERO")) {
++                bit=1;
++                if (vm || span != UINT64_C(0x100000000) || file || stored ||
++                    maxprot || prot || nsections) return false;
++            } else if (macws_vnc_name16(command+8,"__TEXT")) {
++                bit=2;
++                if (vm != UINT64_C(0x100000000) || span != 0x5c000 ||
++                    file || stored != 0x5c000 || maxprot != 5 || prot != 5) return false;
++            } else if (macws_vnc_name16(command+8,"__DATA_CONST")) {
++                bit=4;
++                if (vm != UINT64_C(0x10005c000) || span != 0x4000 ||
++                    file != 0x5c000 || stored != 0x4000 || maxprot != 3 || prot != 3) return false;
++            } else if (macws_vnc_name16(command+8,"__DATA")) {
++                bit=8;
++                if (vm != UINT64_C(0x100060000) || span != 0x4000 ||
++                    file != 0x60000 || stored != 0x4000 || maxprot != 3 || prot != 3) return false;
++            } else if (macws_vnc_name16(command+8,"__LINKEDIT")) {
++                bit=16;
++                if (vm != UINT64_C(0x100064000) || file != 0x64000 ||
++                    !span || span > 0x1000000 || !stored || maxprot != 1 ||
++                    prot != 1 || nsections) return false;
++            } else return false;
++            if (segments & bit) return false;
++            segments |= bit;
++            for (uint32_t j=0;j<nsections;j++) {
++                const uint8_t *section=command+72+(size_t)j*80;
++                uint64_t addr=macws_vnc_u64(section+32), n=macws_vnc_u64(section+40);
++                uint32_t off=macws_vnc_u32(section+48), flags=macws_vnc_u32(section+64);
++                if (memcmp(section+16,command+8,16) || addr < vm ||
++                    addr-vm > span || n > span-(addr-vm)) return false;
++                unsigned type=flags & 0xff;
++                if (type != 1 && type != 0xc && type != 0x12 &&
++                    (off < file || (uint64_t)off-file != addr-vm ||
++                     (uint64_t)off-file > stored || n > stored-((uint64_t)off-file))) return false;
++                unsigned selected=0;
++                if (bit==2 && macws_vnc_name16(section,"__text")) {
++                    selected=1;
++                    if (addr != UINT64_C(0x100002c18) || n != 0x4d6a0 ||
++                        off != 0x2c18 || flags != 0x80000400) return false;
++                } else if (bit==8 && macws_vnc_name16(section,"__common")) {
++                    selected=2;
++                    if (addr != UINT64_C(0x100061370) || n != 0x2f4 || off || flags != 1) return false;
++                } else if (bit==8 && macws_vnc_name16(section,"__bss")) {
++                    selected=4;
++                    if (addr != UINT64_C(0x100061668) || n != 0x1009 || off || flags != 1) return false;
++                }
++                if (selected && (sections & selected)) return false;
++                sections |= selected;
++            }
++        }
++        cursor += size;
++    }
++    if (cursor != length || segments != 31 || sections != 7 || uuids != 1) return false;
++    out->textOffset=0x2c18; out->textSize=0x4d6a0;
++    return true;
++}
++
++static inline bool macws_vnc_target_offset(const MacWSVNCImageProfile *p,
++                                            uint64_t offset,size_t size,bool code) {
++    return p && (code ? macws_vnc_span(offset,size,p->textOffset,p->textSize)
++                       : macws_vnc_span(offset,size,0x60000,0x4000));
++}
++/* Actual semantic pointer types extracted from this binary, not SDK guesses. */
++static const char macws_vnc_client_argument_type[] = "^{rfbClientRec=i*ii{_opaque_pthread_mutex_t=q[56c]}iii^v^v[16C]{_opaque_pthread_mutex_t=q[56c]}{_opaque_pthread_cond_t=q[40c]}{_Region={_Box=ssss}^{_RegData}}{_Region={_Box=ssss}^{_RegData}}^?*{?=CCCCSSSCCCCS}i**i[17i][17i]iiiiii{z_stream_s=*IQ*IQ*^{internal_state}^?^?^viQQ}iI{z_stream_s=*IQ*IQ*^{internal_state}^?^?^viQQ}{z_stream_s=*IQ*IQ*^{internal_state}^?^?^viQQ}i*i*i[4{z_stream_s=*IQ*IQ*^{internal_state}^?^?^viQQ}][4i][4i]iiiiiiiiiiiiiiiiII{PALETTE_s=[256{PALETTE_ENTRY_s=^{COLOR_LIST_s}i}][256^{COLOR_LIST_s}][256{COLOR_LIST_s=^{COLOR_LIST_s}iI}]}i*i*^i{jpeg_destination_mgr=*Q^?^?^?}ii^{jpeg_compress_struct}[16388c]iiii^v^v**^vi^v^v^v^viii{CGPoint=dd}B[256B]^{screen_data_t}[30000c]I^{rfbClientRec}^{rfbClientRec}}";
++static const char macws_vnc_server_argument_type[] = "^{rfbserver=@*iB{_opaque_pthread_mutex_t=q[56c]}{_opaque_pthread_cond_t=q[40c]}}";
++#endif

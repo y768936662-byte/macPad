@@ -1,0 +1,59 @@
+name: Codex VNC input native compile (isolated)
+on:
+  push:
+    branches: ['codex/vnc-input-compile-20261004-160x']
+    paths:
+      - 'ci-probes/vnc-input-only/160x/**'
+      - '.github/workflows/codex-vnc-input-compile.yml'
+permissions:
+  contents: read
+concurrency:
+  group: codex-vnc-input-compile-160x-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  compile:
+    runs-on: macos-14
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          lfs: false
+      - name: Prepare pinned native toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          brew install make ldid dpkg git-lfs
+          echo "$(brew --prefix)/opt/make/libexec/gnubin" >> "$GITHUB_PATH"
+          theos_dir="$RUNNER_TEMP/macpad-compile-theos"
+          sdk_dir="$RUNNER_TEMP/macpad-compile-sdks"
+          git init "$theos_dir"
+          git -C "$theos_dir" remote add origin https://github.com/theos/theos.git
+          git -C "$theos_dir" fetch --depth=1 origin dd5c14bb9d91311e221d51b5bfb8c9e5948156db
+          git -C "$theos_dir" checkout --detach FETCH_HEAD
+          git -C "$theos_dir" submodule update --init --recursive --depth=1
+          test "$(git -C "$theos_dir" rev-parse HEAD)" = dd5c14bb9d91311e221d51b5bfb8c9e5948156db
+          git init "$sdk_dir"
+          git -C "$sdk_dir" remote add origin https://github.com/theos/sdks.git
+          git -C "$sdk_dir" fetch --depth=1 origin 0222fd5413cf4b9af096f37b4621afa2688572f7
+          git -C "$sdk_dir" sparse-checkout init --cone
+          git -C "$sdk_dir" sparse-checkout set iPhoneOS16.5.sdk
+          GIT_LFS_SKIP_SMUDGE=1 git -C "$sdk_dir" checkout --detach FETCH_HEAD
+          git -C "$sdk_dir" lfs install --local
+          git -C "$sdk_dir" lfs pull -I 'iPhoneOS16.5.sdk/**'
+          test "$(git -C "$sdk_dir" rev-parse HEAD)" = 0222fd5413cf4b9af096f37b4621afa2688572f7
+          mkdir -p "$theos_dir/sdks"
+          cp -R "$sdk_dir/iPhoneOS16.5.sdk" "$theos_dir/sdks/"
+          test -f "$theos_dir/sdks/iPhoneOS16.5.sdk/SDKSettings.plist"
+          echo "THEOS=$theos_dir" >> "$GITHUB_ENV"
+          echo "$theos_dir/bin" >> "$GITHUB_PATH"
+      - name: Compile reviewed snapshot and header fixtures
+        run: bash ci-probes/vnc-input-only/160x/build-native.sh
+      - name: Upload compile evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: vnc-input-only-compile-160x-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ci-probes/vnc-input-only/160x/compile-output/
+          if-no-files-found: warn
+          retention-days: 14

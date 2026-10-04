@@ -1,0 +1,1179 @@
+{
+  "captured_at": "2026-10-04T16:32:00.575796+08:00",
+  "scope": "complete isolated native compile inputs; no source overwrite, native execution, device change, or CI trigger",
+  "baseline_mac_hooks_lf": "f20bd7fa96b4a9ce8d85dd2883d6d295dd178a51f504629d1a121e44c7388c4a",
+  "baseline_nocopy_header_lf": "cdb53f35d3b38dc80721e38c75d75ddd477061cf7c5cddfe8d7b125d8f37f9c4",
+  "cumulative_patch_sha256": "d8a3345afd5bea6f4773b3c5579ea9906c551b48650441329d4daf4a5debf3c1",
+  "patched_main_sha256": "900e5bbf2a6b51cf6d09f6077e8f495ba06710ac73d3beae47d8c60ec32ac97d",
+  "inputs_stable_after_capture": true,
+  "wb_inputs": [
+    {
+      "path": "config/production.mk",
+      "raw_sha256": "f95939b825f5fbdfbe3cb7043f9447329c9f7aea3a24fda38c145f601b455d42",
+      "lf_sha256": "f95939b825f5fbdfbe3cb7043f9447329c9f7aea3a24fda38c145f601b455d42",
+      "bytes": 283,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "control",
+      "raw_sha256": "b62ee54cab6d73940cdbb4305db0c648419b3ede49280c188d2b8c79a7b6d7d7",
+      "lf_sha256": "b62ee54cab6d73940cdbb4305db0c648419b3ede49280c188d2b8c79a7b6d7d7",
+      "bytes": 304,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "include/macws_agx_compute_abi.h",
+      "raw_sha256": "3a72d2d9878be20dd691ab7e94616010d870bc12f412876aad013365189ed2bd",
+      "lf_sha256": "3a72d2d9878be20dd691ab7e94616010d870bc12f412876aad013365189ed2bd",
+      "bytes": 3513,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "include/macws_atomic_pointer_click.h",
+      "raw_sha256": "4eabcadd23c919ac2e763ae36b49b2cb14d8e8aec17797cc6d9a49a7087611c2",
+      "lf_sha256": "4eabcadd23c919ac2e763ae36b49b2cb14d8e8aec17797cc6d9a49a7087611c2",
+      "bytes": 1396,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "include/macws_audio_bridge.h",
+      "raw_sha256": "9c25dfe8ff6413db5eab2224e4b5761574188fd9de261697227f5265cbf0a419",
+      "lf_sha256": "9c25dfe8ff6413db5eab2224e4b5761574188fd9de261697227f5265cbf0a419",
+      "bytes": 1492,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "include/macws_catalyst_drawable_protocol.h",
+      "raw_sha256": "02b52fdbf295fcbc250db7d6de2606d06fbbfc56ec9704cb9d0019e0d918b85f",
+      "lf_sha256": "02b52fdbf295fcbc250db7d6de2606d06fbbfc56ec9704cb9d0019e0d918b85f",
+      "bytes": 4416,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "include/macws_chroot_environment.h",
+      "raw_sha256": "cfab24cb41b9dcd56a01974aebe44e75d900965dc0f1a87e42e4f071290eff1e",
+      "lf_sha256": "cfab24cb41b9dcd56a01974aebe44e75d900965dc0f1a87e42e4f071290eff1e",
+      "bytes": 2092,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "include/macws_chroot_identity.h",
+      "raw_sha256": "681b7e0f75318a345760a895005bfcc31ca78cd171d3886e451334f60c4266a7",
+      "lf_sha256": "681b7e0f75318a345760a895005bfcc31ca78cd171d3886e451334f60c4266a7",
+      "bytes": 3093,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "include/macws_code_pointer.h",
+      "raw_sha256": "2700a5f9289c4c364b68bf631691d9cf4b801d514a4b96777a675ee9e76673c0",
+      "lf_sha256": "2700a5f9289c4c364b68bf631691d9cf4b801d514a4b96777a675ee9e76673c0",
+      "bytes": 550,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "include/macws_composite_candidate_policy.h",
+      "raw_sha256": "60e72eded4785069500b0c8cfa067760add54f76e5fcde21345b36f407c2d193",
+      "lf_sha256": "60e72eded4785069500b0c8cfa067760add54f76e5fcde21345b36f407c2d193",
+      "bytes": 884,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "include/macws_control_protocol.h",
+      "raw_sha256": "9cbfa40e3b3e8011d2b239792854671bf55cc1be4801a1527ca7c70675d29471",
+      "lf_sha256": "9cbfa40e3b3e8011d2b239792854671bf55cc1be4801a1527ca7c70675d29471",
+      "bytes": 3329,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "include/macws_diagnostics_policy.h",
+      "raw_sha256": "e00be83cde1a6a5f4ab0f4f10c9c7cc9bf5492ef9c82799225c4c6adbf048f12",
+      "lf_sha256": "e00be83cde1a6a5f4ab0f4f10c9c7cc9bf5492ef9c82799225c4c6adbf048f12",
+      "bytes": 464,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "include/macws_display_geometry.h",
+      "raw_sha256": "7ccd92d1cd08957ebbe985bf7ea9aefd8635b3e3b48ec9604463e097be705aa7",
+      "lf_sha256": "7ccd92d1cd08957ebbe985bf7ea9aefd8635b3e3b48ec9604463e097be705aa7",
+      "bytes": 2805,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "include/macws_dock_expose_notify.h",
+      "raw_sha256": "7242695fecd4ac1914cae752bb3020bf08dc2c4e53cc2f4f7a4b2c42fea41779",
+      "lf_sha256": "7242695fecd4ac1914cae752bb3020bf08dc2c4e53cc2f4f7a4b2c42fea41779",
+      "bytes": 818,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "include/macws_electron_page_allocator.h",
+      "raw_sha256": "69d1f98489bf42768d6593743cf6d2b71aefecdd74ff9baa27699a443d5d4ecf",
+      "lf_sha256": "69d1f98489bf42768d6593743cf6d2b71aefecdd74ff9baa27699a443d5d4ecf",
+      "bytes": 1681,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "include/macws_file_copy.h",
+      "raw_sha256": "74b98ad3ab9b70c542c2e7f9d773105fef32fedb6e898086b2eb9a4f82d4e309",
+      "lf_sha256": "74b98ad3ab9b70c542c2e7f9d773105fef32fedb6e898086b2eb9a4f82d4e309",
+      "bytes": 3176,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "include/macws_final_composite_protocol.h",
+      "raw_sha256": "1bd08dc82048482f4643fdac3eabf0e2cf3c6b738a41ddc6e0683573b3462e99",
+      "lf_sha256": "1bd08dc82048482f4643fdac3eabf0e2cf3c6b738a41ddc6e0683573b3462e99",
+      "bytes": 5730,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "include/macws_host_protocol.h",
+      "raw_sha256": "d8e9f5fff415fd70958a4ee97f26b4473e22173b84e294d99893de35cb248223",
+      "lf_sha256": "d8e9f5fff415fd70958a4ee97f26b4473e22173b84e294d99893de35cb248223",
+      "bytes": 26016,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "include/macws_interop_protocol.h",
+      "raw_sha256": "2709a40ce69b0b9e6e7dbc22552aa7fe20986a71758994a904f92e5fa5807f59",
+      "lf_sha256": "2709a40ce69b0b9e6e7dbc22552aa7fe20986a71758994a904f92e5fa5807f59",
+      "bytes": 4872,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "include/macws_iosurface_layout_abi.h",
+      "raw_sha256": "1f2e07f6f5c4fb88aaca7abd76a6f4670dd6831cc66dc8cf095defe0e9b06c20",
+      "lf_sha256": "1f2e07f6f5c4fb88aaca7abd76a6f4670dd6831cc66dc8cf095defe0e9b06c20",
+      "bytes": 2488,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "include/macws_iosurface_protection_abi.h",
+      "raw_sha256": "3c2113e3013dd241f7a037fe070a667fb6f49024a0ab79fbeaf575db27cf9bb4",
+      "lf_sha256": "3c2113e3013dd241f7a037fe070a667fb6f49024a0ab79fbeaf575db27cf9bb4",
+      "bytes": 912,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "include/macws_keyboard_source.h",
+      "raw_sha256": "4d747101af463e9d941faf73aa384be51b26c36f4181ede99260a06a2a628d9b",
+      "lf_sha256": "4d747101af463e9d941faf73aa384be51b26c36f4181ede99260a06a2a628d9b",
+      "bytes": 3278,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "include/macws_keyboard_state.h",
+      "raw_sha256": "ed2f1a9b0f4e965a328b14314c9b992d6ffe0a88b8f82f9914778314b16d9624",
+      "lf_sha256": "ed2f1a9b0f4e965a328b14314c9b992d6ffe0a88b8f82f9914778314b16d9624",
+      "bytes": 8321,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "include/macws_keychain_protocol.h",
+      "raw_sha256": "d2ce5330654114166fa143648b334c00132e9f464c4a89ce16e2e4f42c4323e1",
+      "lf_sha256": "d2ce5330654114166fa143648b334c00132e9f464c4a89ce16e2e4f42c4323e1",
+      "bytes": 558,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "include/macws_macho_arch.h",
+      "raw_sha256": "826f13313830933d50e6b37b062050611034c2c6751ab00191bef077246d453b",
+      "lf_sha256": "826f13313830933d50e6b37b062050611034c2c6751ab00191bef077246d453b",
+      "bytes": 4332,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "include/macws_menu_protocol.h",
+      "raw_sha256": "4713cf70aff72a3410592f4db6a88419fd4615c9c0b898d41352d08e87905943",
+      "lf_sha256": "4713cf70aff72a3410592f4db6a88419fd4615c9c0b898d41352d08e87905943",
+      "bytes": 6418,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "include/macws_metal_dag_request.h",
+      "raw_sha256": "5a9d2d85739c12820e40b41dda494a3a7948ee7ba93693d8f05918580fab1eb6",
+      "lf_sha256": "5a9d2d85739c12820e40b41dda494a3a7948ee7ba93693d8f05918580fab1eb6",
+      "bytes": 5664,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "include/macws_metal_image_filter_request.h",
+      "raw_sha256": "f7a1e0fcc35923a5fd679ffb11aff6a53744c7daef8d4d8f10708a709fc2d991",
+      "lf_sha256": "f7a1e0fcc35923a5fd679ffb11aff6a53744c7daef8d4d8f10708a709fc2d991",
+      "bytes": 5364,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "include/macws_nocopy_abi.h",
+      "raw_sha256": "e405d69a72ccd89640e6698167809802b179333f6c72bce0fb33bd65f4acea4d",
+      "lf_sha256": "cdb53f35d3b38dc80721e38c75d75ddd477061cf7c5cddfe8d7b125d8f37f9c4",
+      "bytes": 3859,
+      "normalized_crlf": 101
+    },
+    {
+      "path": "include/macws_pointer_activation.h",
+      "raw_sha256": "fb5b6d38043b1994ec7868595d8bba72c17f555c4f41401cba87a50e7319823f",
+      "lf_sha256": "fb5b6d38043b1994ec7868595d8bba72c17f555c4f41401cba87a50e7319823f",
+      "bytes": 1781,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "include/macws_power_lifecycle.h",
+      "raw_sha256": "8a4e196731a8940953b477f76c43698278d5b80387f654742f31f091d7135929",
+      "lf_sha256": "8a4e196731a8940953b477f76c43698278d5b80387f654742f31f091d7135929",
+      "bytes": 724,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "include/macws_process_ancestry.h",
+      "raw_sha256": "323abc70eef760fc5210ac5d860394d1c2a45b2f4674d8644f289a97dac0b6fa",
+      "lf_sha256": "323abc70eef760fc5210ac5d860394d1c2a45b2f4674d8644f289a97dac0b6fa",
+      "bytes": 1969,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "include/macws_production_policy.h",
+      "raw_sha256": "5d9601f080f9155f6af6fd9b292185e505c1ed4dffa75393abe5d1cd38c35a3d",
+      "lf_sha256": "5d9601f080f9155f6af6fd9b292185e505c1ed4dffa75393abe5d1cd38c35a3d",
+      "bytes": 579,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "include/macws_resize_gesture.h",
+      "raw_sha256": "bbcb1dcec041a7648d89a9e0e30058d95800dd268aeaa38cdc56c608759673a4",
+      "lf_sha256": "bbcb1dcec041a7648d89a9e0e30058d95800dd268aeaa38cdc56c608759673a4",
+      "bytes": 791,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "include/macws_settings_bridge_notify.h",
+      "raw_sha256": "446b30ad052a9f34272621544e6e13bc46150b712b3f0720ea437026821ed70b",
+      "lf_sha256": "446b30ad052a9f34272621544e6e13bc46150b712b3f0720ea437026821ed70b",
+      "bytes": 2237,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "include/macws_settings_bridge_protocol.h",
+      "raw_sha256": "4f81294d61d8ede857879d526975bcebcf004a3eca10d48370761d96d4dc16ec",
+      "lf_sha256": "4f81294d61d8ede857879d526975bcebcf004a3eca10d48370761d96d4dc16ec",
+      "bytes": 1107,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "include/macws_settings_paths.h",
+      "raw_sha256": "7c10ddc100071b8f098354918d0347787a9d750c7b95a799c8c717c0803709ca",
+      "lf_sha256": "7c10ddc100071b8f098354918d0347787a9d750c7b95a799c8c717c0803709ca",
+      "bytes": 1875,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "include/macws_steam_mach_rendezvous_protocol.h",
+      "raw_sha256": "e2ea0a40d3cbf8e9b66290d04d8ed29cdbb176e05886eefd726c2dfe7ff8dce0",
+      "lf_sha256": "e2ea0a40d3cbf8e9b66290d04d8ed29cdbb176e05886eefd726c2dfe7ff8dce0",
+      "bytes": 553,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "include/macws_steam_semaphore_protocol.h",
+      "raw_sha256": "cbe298f05abc9e843605d9fb582a68f5976875b2e3ee8f6ddb6adc61833ae3f7",
+      "lf_sha256": "cbe298f05abc9e843605d9fb582a68f5976875b2e3ee8f6ddb6adc61833ae3f7",
+      "bytes": 3951,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "include/macws_stream_protocol.h",
+      "raw_sha256": "7e8d050a847260373ba3067f29456c81989465db58b0c165c569eca2f5771ec7",
+      "lf_sha256": "7e8d050a847260373ba3067f29456c81989465db58b0c165c569eca2f5771ec7",
+      "bytes": 26604,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "include/macws_switcher_selection.h",
+      "raw_sha256": "d9a8c1f1df4296b1f0de6cf23550e2135eab18e647899a5677aa2d5d2e7ab320",
+      "lf_sha256": "d9a8c1f1df4296b1f0de6cf23550e2135eab18e647899a5677aa2d5d2e7ab320",
+      "bytes": 2260,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "include/macws_touch_policy.h",
+      "raw_sha256": "995f1f1c8fc8f4686a8ddf12bac6b9fb7592ab1a79522944a6e04df4d7d39eff",
+      "lf_sha256": "995f1f1c8fc8f4686a8ddf12bac6b9fb7592ab1a79522944a6e04df4d7d39eff",
+      "bytes": 14867,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "include/macws_viewport_math.h",
+      "raw_sha256": "54df1e67d9f231ebfe15428feb14eb3de72a220e94f5d7710672bb9344441044",
+      "lf_sha256": "54df1e67d9f231ebfe15428feb14eb3de72a220e94f5d7710672bb9344441044",
+      "bytes": 8676,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "include/macws_webkit_services.h",
+      "raw_sha256": "5798c5449a421a89c9c3a4ee4f0349c36a2c92cabb0ba1b65020067041350dd0",
+      "lf_sha256": "5798c5449a421a89c9c3a4ee4f0349c36a2c92cabb0ba1b65020067041350dd0",
+      "bytes": 1571,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "include/macws_window_configuration.h",
+      "raw_sha256": "e6c09db262c4b55bd68d282ed855ce0dd8e22bdebc10511e125c5e2d5b8b8352",
+      "lf_sha256": "e6c09db262c4b55bd68d282ed855ce0dd8e22bdebc10511e125c5e2d5b8b8352",
+      "bytes": 4994,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "include/macws_windowing_notify.h",
+      "raw_sha256": "160349bf8e12b1730f39f398eb829f683025f4bd24bcee9a64af7075aff29350",
+      "lf_sha256": "160349bf8e12b1730f39f398eb829f683025f4bd24bcee9a64af7075aff29350",
+      "bytes": 2606,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "include/macws_windowing_protocol.h",
+      "raw_sha256": "7c2645b4af39215281a97b24375f1b5eb212ee296ec36deb9365635df7acc930",
+      "lf_sha256": "7c2645b4af39215281a97b24375f1b5eb212ee296ec36deb9365635df7acc930",
+      "bytes": 1435,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "interpose.h",
+      "raw_sha256": "f2ffb879d834f739ab625a025fbeacd0e3890007a164a021e63ccbb144828b64",
+      "lf_sha256": "f2ffb879d834f739ab625a025fbeacd0e3890007a164a021e63ccbb144828b64",
+      "bytes": 381,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "IOMobileFramebuffer.h",
+      "raw_sha256": "d762f0bdfb0d6e626be6bee5a0b2eb26041ba8d74876afd6b93212009c02668e",
+      "lf_sha256": "d762f0bdfb0d6e626be6bee5a0b2eb26041ba8d74876afd6b93212009c02668e",
+      "bytes": 1222,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "libmachook/AppInputBridge.m",
+      "raw_sha256": "d9c8d0aca662316b96199e3ed6a6345abe726591c37ebe6cf1b19bd3f3550b74",
+      "lf_sha256": "d9c8d0aca662316b96199e3ed6a6345abe726591c37ebe6cf1b19bd3f3550b74",
+      "bytes": 607779,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "libmachook/AudioRenderBridge.m",
+      "raw_sha256": "1ead3bf6b94b3ea57d21a33b0625db0f9b907dfed317c22923cdc659e562fe9a",
+      "lf_sha256": "1ead3bf6b94b3ea57d21a33b0625db0f9b907dfed317c22923cdc659e562fe9a",
+      "bytes": 27685,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "libmachook/Compatibility/MacWSAppleNeuralEngine.m",
+      "raw_sha256": "7b7e13dca3f3725617529becf4055d5931d18bde3e19b5f3340247a99d8e8a8c",
+      "lf_sha256": "7b7e13dca3f3725617529becf4055d5931d18bde3e19b5f3340247a99d8e8a8c",
+      "bytes": 31527,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "libmachook/Compatibility/MacWSCatalystInputPolicy.h",
+      "raw_sha256": "f3019050ebe70b04f439c3957867298866ed6bbb1fe0b7234c20e52ea536df34",
+      "lf_sha256": "f3019050ebe70b04f439c3957867298866ed6bbb1fe0b7234c20e52ea536df34",
+      "bytes": 437,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "libmachook/Compatibility/MacWSCatalystInputPolicy.m",
+      "raw_sha256": "ef3237abc7382667df97d6517ec659e21d2896c494e686071b02f7dbd8c126be",
+      "lf_sha256": "ef3237abc7382667df97d6517ec659e21d2896c494e686071b02f7dbd8c126be",
+      "bytes": 1483,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "libmachook/Compatibility/MacWSCatalystKeychain.m",
+      "raw_sha256": "6d5b6b91bac068605caca79a57188997805bd299d689cbcc2d6955de9fe99c0c",
+      "lf_sha256": "6d5b6b91bac068605caca79a57188997805bd299d689cbcc2d6955de9fe99c0c",
+      "bytes": 6985,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "libmachook/Compatibility/MacWSElectronPageAllocator.c",
+      "raw_sha256": "37a91acc4c3acced00972b2ceaff53999b15cedced5b2e98884f2f9962c7c283",
+      "lf_sha256": "37a91acc4c3acced00972b2ceaff53999b15cedced5b2e98884f2f9962c7c283",
+      "bytes": 7178,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "libmachook/Compatibility/MacWSIOKitRegistry.m",
+      "raw_sha256": "3680f59671e9928ad321a9d71b1377307da89d39c95d1a2ddaff36650d0baa3f",
+      "lf_sha256": "3680f59671e9928ad321a9d71b1377307da89d39c95d1a2ddaff36650d0baa3f",
+      "bytes": 1949,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "libmachook/Compatibility/MacWSOfficeMultiplyFilter.m",
+      "raw_sha256": "eb7b3a508933b826764d3603578c1589b9d130818779ad9dd8793298186bec23",
+      "lf_sha256": "eb7b3a508933b826764d3603578c1589b9d130818779ad9dd8793298186bec23",
+      "bytes": 2301,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "libmachook/Compatibility/MacWSSendfile.c",
+      "raw_sha256": "41ee8b65667b94e45d3ef5e847092255349613444e4547afa4cd4487852aa5b9",
+      "lf_sha256": "41ee8b65667b94e45d3ef5e847092255349613444e4547afa4cd4487852aa5b9",
+      "bytes": 7763,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "libmachook/Compatibility/MacWSSteamNamedSemaphore.c",
+      "raw_sha256": "f635d56b63114532a508022208e3856b8f9bc13f135a35ba5a7ca940533f433b",
+      "lf_sha256": "f635d56b63114532a508022208e3856b8f9bc13f135a35ba5a7ca940533f433b",
+      "bytes": 72330,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "libmachook/Compatibility/MacWSSteamProcess.m",
+      "raw_sha256": "5529d5ff202533d2bc984cd0dba3f108a3a1e7dcf2326bda698dbd8da4d92287",
+      "lf_sha256": "5529d5ff202533d2bc984cd0dba3f108a3a1e7dcf2326bda698dbd8da4d92287",
+      "bytes": 90617,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "libmachook/Compatibility/MacWSSublimeProcess.m",
+      "raw_sha256": "91491efd1239831f9756f78978ea6fd93154f62b6dd256a90c32dd42588c067a",
+      "lf_sha256": "91491efd1239831f9756f78978ea6fd93154f62b6dd256a90c32dd42588c067a",
+      "bytes": 9763,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "libmachook/Compatibility/MacWSSysVSemaphore.c",
+      "raw_sha256": "8a65c4b47e5857efdcfeec9cb93dce44a4d88fdee5bc1400530890e71d13b829",
+      "lf_sha256": "8a65c4b47e5857efdcfeec9cb93dce44a4d88fdee5bc1400530890e71d13b829",
+      "bytes": 16966,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "libmachook/ControlCenter_hooks.x",
+      "raw_sha256": "275e24465afd95c1802f82ead8f19098c92a1f8c490fa1e2584009fb29ca64ac",
+      "lf_sha256": "275e24465afd95c1802f82ead8f19098c92a1f8c490fa1e2584009fb29ca64ac",
+      "bytes": 1033,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "libmachook/Diagnostics/MacWSIdentityDiagnostics.h",
+      "raw_sha256": "23513d0b49e784053083d174716952c4c9ddafab5d43cd6343f0472dab7512a8",
+      "lf_sha256": "23513d0b49e784053083d174716952c4c9ddafab5d43cd6343f0472dab7512a8",
+      "bytes": 482,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "libmachook/Diagnostics/MacWSIdentityDiagnostics.m",
+      "raw_sha256": "de2b22c5d799456051559728f1a1945190d7fc9936a7b36898e547c0fbed8c33",
+      "lf_sha256": "de2b22c5d799456051559728f1a1945190d7fc9936a7b36898e547c0fbed8c33",
+      "bytes": 4569,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "libmachook/Diagnostics/MacWSInputLatency.h",
+      "raw_sha256": "ca6063891136bb0a1352f1ef705d43b5b212f1c538484e6c2cedf8c528a3a85b",
+      "lf_sha256": "ca6063891136bb0a1352f1ef705d43b5b212f1c538484e6c2cedf8c528a3a85b",
+      "bytes": 1234,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "libmachook/Diagnostics/MacWSInputLatency.m",
+      "raw_sha256": "fab22837e050fb4a7b32f7bb6a110405f234dd9205bd04fe53032e093400d960",
+      "lf_sha256": "fab22837e050fb4a7b32f7bb6a110405f234dd9205bd04fe53032e093400d960",
+      "bytes": 6857,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "libmachook/Diagnostics/MacWSRandomDiagnostics.m",
+      "raw_sha256": "09d87da6f0dd1e8b88517fcbbb613e2ff7e168e75020b38fbba435e1e0b712e9",
+      "lf_sha256": "09d87da6f0dd1e8b88517fcbbb613e2ff7e168e75020b38fbba435e1e0b712e9",
+      "bytes": 7677,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "libmachook/Diagnostics/MacWSSteamPipeDiagnostics.m",
+      "raw_sha256": "c22e83a60df8d749c933a5b3b9c4b2ec3ee675d0ff3d23d379b74bed1c77a335",
+      "lf_sha256": "c22e83a60df8d749c933a5b3b9c4b2ec3ee675d0ff3d23d379b74bed1c77a335",
+      "bytes": 36212,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "libmachook/DNSBridge.c",
+      "raw_sha256": "cf336b1dac8beb0d512b29044612bfda2f698176de5ab854bc114b77f4e88b0f",
+      "lf_sha256": "cf336b1dac8beb0d512b29044612bfda2f698176de5ab854bc114b77f4e88b0f",
+      "bytes": 9570,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "libmachook/exec_hooks.c",
+      "raw_sha256": "d5950a5aa394d274938b94528c27d7b4fd5d9ebb6f7b260b9f5950ebd751665c",
+      "lf_sha256": "d5950a5aa394d274938b94528c27d7b4fd5d9ebb6f7b260b9f5950ebd751665c",
+      "bytes": 28148,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "libmachook/jit.m",
+      "raw_sha256": "3ad7374b5cf4c489cae6dff1be20c9fd79da7a73c4660aaf20eafe33736b402d",
+      "lf_sha256": "3ad7374b5cf4c489cae6dff1be20c9fd79da7a73c4660aaf20eafe33736b402d",
+      "bytes": 3365,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "libmachook/LocalFilePanel.m",
+      "raw_sha256": "a09958f10b48feaa6c0fce77db167b19bd940e19ffd5341b54e41877df42316b",
+      "lf_sha256": "a09958f10b48feaa6c0fce77db167b19bd940e19ffd5341b54e41877df42316b",
+      "bytes": 5841,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "libmachook/mac_hooks.m",
+      "raw_sha256": "c6073ac1b43a0a54a2967ebe202aee1c3ed9149731fbc9bebaa63314c008fd1f",
+      "lf_sha256": "f20bd7fa96b4a9ce8d85dd2883d6d295dd178a51f504629d1a121e44c7388c4a",
+      "bytes": 1226754,
+      "normalized_crlf": 24692
+    },
+    {
+      "path": "libmachook/MacWSFinalCompositePublisher.h",
+      "raw_sha256": "3c0ed3419139f26600a962c56e5506d0a31f65f8338f18de79429e15671a431a",
+      "lf_sha256": "3c0ed3419139f26600a962c56e5506d0a31f65f8338f18de79429e15671a431a",
+      "bytes": 1090,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "libmachook/MacWSFinalCompositePublisher.m",
+      "raw_sha256": "a63cd14ac3672cfbec7ee3960044695692de8f70a2ae3386a395650c4b0abb25",
+      "lf_sha256": "a63cd14ac3672cfbec7ee3960044695692de8f70a2ae3386a395650c4b0abb25",
+      "bytes": 40365,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "libmachook/Makefile",
+      "raw_sha256": "a424be668a4bd730c1a491ced8cb8b4a67330664c804238d254e249c5281936d",
+      "lf_sha256": "a424be668a4bd730c1a491ced8cb8b4a67330664c804238d254e249c5281936d",
+      "bytes": 4111,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "libmachook/Metal_hooks.x",
+      "raw_sha256": "f2a4b3b8112b87d826b1a1b4e1723c71bfca3ba7a931df5388fa9ad4ae3d30bf",
+      "lf_sha256": "f2a4b3b8112b87d826b1a1b4e1723c71bfca3ba7a931df5388fa9ad4ae3d30bf",
+      "bytes": 1197206,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "libmachook/objc_hooks.c",
+      "raw_sha256": "e0295311c55a3f737592cc801166353677756e8528a2952abf7601cb574460d2",
+      "lf_sha256": "e0295311c55a3f737592cc801166353677756e8528a2952abf7601cb574460d2",
+      "bytes": 444,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "libmachook/os_log_hooks.m",
+      "raw_sha256": "7093d5c6a3c973b26915521f91463a608a7f68379f5f8c22c4e5c33d756c6ebd",
+      "lf_sha256": "7093d5c6a3c973b26915521f91463a608a7f68379f5f8c22c4e5c33d756c6ebd",
+      "bytes": 10367,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "libmachook/os_variant_hooks.x",
+      "raw_sha256": "b65db0f96a4a7a2fbff3eaee562b0f57b5b1ca46c41c5e7985d1648185190efa",
+      "lf_sha256": "b65db0f96a4a7a2fbff3eaee562b0f57b5b1ca46c41c5e7985d1648185190efa",
+      "bytes": 1477,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "libmachook/QuartzCore_hooks.x",
+      "raw_sha256": "ff1eb6e2c65a0812fa403df300e129778ee1834f21a77147e1a2c073895e8035",
+      "lf_sha256": "ff1eb6e2c65a0812fa403df300e129778ee1834f21a77147e1a2c073895e8035",
+      "bytes": 1345,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "libmachook/utils.h",
+      "raw_sha256": "0fdab3173903245cfed6a1da2d37491f359c0ac968ab624b88eed65b0fda9724",
+      "lf_sha256": "0fdab3173903245cfed6a1da2d37491f359c0ac968ab624b88eed65b0fda9724",
+      "bytes": 138,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "vendor/ios-xpc/README.md",
+      "raw_sha256": "adf01c7685ed05b393ce029c7fab9e29cf12f15326f6fe681c81ecd302f7f82d",
+      "lf_sha256": "adf01c7685ed05b393ce029c7fab9e29cf12f15326f6fe681c81ecd302f7f82d",
+      "bytes": 1079,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "vendor/ios-xpc/xpc/activity.h",
+      "raw_sha256": "8dcab5a3ba8daacc63d7bd6552396097dd2f8d749079e1a6f3fe390b92677d34",
+      "lf_sha256": "8dcab5a3ba8daacc63d7bd6552396097dd2f8d749079e1a6f3fe390b92677d34",
+      "bytes": 16579,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "vendor/ios-xpc/xpc/availability.h",
+      "raw_sha256": "371b72f79cffb4d0c34df55c0e83bc0358abfabdab46d43ef8e92eec689c9f14",
+      "lf_sha256": "371b72f79cffb4d0c34df55c0e83bc0358abfabdab46d43ef8e92eec689c9f14",
+      "bytes": 4312,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "vendor/ios-xpc/xpc/base.h",
+      "raw_sha256": "06acfe4c83c3341e2f05e6810df56603669cbf676c5a6c381d06731e007b00f5",
+      "lf_sha256": "06acfe4c83c3341e2f05e6810df56603669cbf676c5a6c381d06731e007b00f5",
+      "bytes": 7682,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "vendor/ios-xpc/xpc/connection.h",
+      "raw_sha256": "6e30d71cacb68677b8a2ba178a3b79fdc2e34e8262b5c6c8245edfe14412cbf0",
+      "lf_sha256": "6e30d71cacb68677b8a2ba178a3b79fdc2e34e8262b5c6c8245edfe14412cbf0",
+      "bytes": 43926,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "vendor/ios-xpc/xpc/debug.h",
+      "raw_sha256": "494edda0b7dead4bf4382c7e1c0564a8175a25eb6d40b94303e82497f58d69fc",
+      "lf_sha256": "494edda0b7dead4bf4382c7e1c0564a8175a25eb6d40b94303e82497f58d69fc",
+      "bytes": 755,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "vendor/ios-xpc/xpc/endpoint.h",
+      "raw_sha256": "360df5662cbc16a7ff5628a2472f2f58a4f509621035068226a1ba5e22c32499",
+      "lf_sha256": "360df5662cbc16a7ff5628a2472f2f58a4f509621035068226a1ba5e22c32499",
+      "bytes": 715,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "vendor/ios-xpc/xpc/peer_requirement.h",
+      "raw_sha256": "18361920a4f6556f47e2205cb5a79da4148a70f5cb1d4fc2c4b9b23c2912e798",
+      "lf_sha256": "18361920a4f6556f47e2205cb5a79da4148a70f5cb1d4fc2c4b9b23c2912e798",
+      "bytes": 8951,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "vendor/ios-xpc/xpc/rich_error.h",
+      "raw_sha256": "fd08fc80d479ca47bfb5d47772df281fc326ce0bdd09f3386ae491470c45f0c1",
+      "lf_sha256": "fd08fc80d479ca47bfb5d47772df281fc326ce0bdd09f3386ae491470c45f0c1",
+      "bytes": 1217,
+      "normalized_crlf": 0
+    },
+    {
+      "path": "vendor/ios-xpc/xpc/xpc.h",
+      "raw_sha256": "5aa9cbe4ef8be82f28060a7cf927e44268cd8cda1eeb4d3c0d737f721984e968",
+      "lf_sha256": "5aa9cbe4ef8be82f28060a7cf927e44268cd8cda1eeb4d3c0d737f721984e968",
+      "bytes": 85075,
+      "normalized_crlf": 0
+    }
+  ],
+  "output_files": [
+    {
+      "path": "cumulative.patch",
+      "sha256": "d8a3345afd5bea6f4773b3c5579ea9906c551b48650441329d4daf4a5debf3c1",
+      "bytes": 47404
+    },
+    {
+      "path": "fixtures/reviewed-vnc-load-commands.bin",
+      "sha256": "19037f763753785d6968e93a4c30b6c863fb51579b64f455680f209f8c4d6be9",
+      "bytes": 4232
+    },
+    {
+      "path": "fixtures/test_vnc_backend_selector.c",
+      "sha256": "8560e3331a4ab65e6527c621484bae1b7f8d91c2fa21ed3bc75afb0646a231d6",
+      "bytes": 1095
+    },
+    {
+      "path": "fixtures/test_vnc_namespace.c",
+      "sha256": "a8a33db6a386754744972a9f4f0df5d426149db61e0a297bd1b7aa9bce1e9638",
+      "bytes": 2240
+    },
+    {
+      "path": "fixtures/test_vnc_profile.c",
+      "sha256": "ceb0b743a0349f6bffbaf7b23adb985eb6cae62b363a963916da3edfa596802d",
+      "bytes": 5104
+    },
+    {
+      "path": "source/config/production.mk",
+      "sha256": "f95939b825f5fbdfbe3cb7043f9447329c9f7aea3a24fda38c145f601b455d42",
+      "bytes": 283
+    },
+    {
+      "path": "source/control",
+      "sha256": "b62ee54cab6d73940cdbb4305db0c648419b3ede49280c188d2b8c79a7b6d7d7",
+      "bytes": 304
+    },
+    {
+      "path": "source/include/macws_agx_compute_abi.h",
+      "sha256": "3a72d2d9878be20dd691ab7e94616010d870bc12f412876aad013365189ed2bd",
+      "bytes": 3513
+    },
+    {
+      "path": "source/include/macws_atomic_pointer_click.h",
+      "sha256": "4eabcadd23c919ac2e763ae36b49b2cb14d8e8aec17797cc6d9a49a7087611c2",
+      "bytes": 1396
+    },
+    {
+      "path": "source/include/macws_audio_bridge.h",
+      "sha256": "9c25dfe8ff6413db5eab2224e4b5761574188fd9de261697227f5265cbf0a419",
+      "bytes": 1492
+    },
+    {
+      "path": "source/include/macws_catalyst_drawable_protocol.h",
+      "sha256": "02b52fdbf295fcbc250db7d6de2606d06fbbfc56ec9704cb9d0019e0d918b85f",
+      "bytes": 4416
+    },
+    {
+      "path": "source/include/macws_chroot_environment.h",
+      "sha256": "cfab24cb41b9dcd56a01974aebe44e75d900965dc0f1a87e42e4f071290eff1e",
+      "bytes": 2092
+    },
+    {
+      "path": "source/include/macws_chroot_identity.h",
+      "sha256": "681b7e0f75318a345760a895005bfcc31ca78cd171d3886e451334f60c4266a7",
+      "bytes": 3093
+    },
+    {
+      "path": "source/include/macws_code_pointer.h",
+      "sha256": "2700a5f9289c4c364b68bf631691d9cf4b801d514a4b96777a675ee9e76673c0",
+      "bytes": 550
+    },
+    {
+      "path": "source/include/macws_composite_candidate_policy.h",
+      "sha256": "60e72eded4785069500b0c8cfa067760add54f76e5fcde21345b36f407c2d193",
+      "bytes": 884
+    },
+    {
+      "path": "source/include/macws_control_protocol.h",
+      "sha256": "9cbfa40e3b3e8011d2b239792854671bf55cc1be4801a1527ca7c70675d29471",
+      "bytes": 3329
+    },
+    {
+      "path": "source/include/macws_diagnostics_policy.h",
+      "sha256": "e00be83cde1a6a5f4ab0f4f10c9c7cc9bf5492ef9c82799225c4c6adbf048f12",
+      "bytes": 464
+    },
+    {
+      "path": "source/include/macws_display_geometry.h",
+      "sha256": "7ccd92d1cd08957ebbe985bf7ea9aefd8635b3e3b48ec9604463e097be705aa7",
+      "bytes": 2805
+    },
+    {
+      "path": "source/include/macws_dock_expose_notify.h",
+      "sha256": "7242695fecd4ac1914cae752bb3020bf08dc2c4e53cc2f4f7a4b2c42fea41779",
+      "bytes": 818
+    },
+    {
+      "path": "source/include/macws_electron_page_allocator.h",
+      "sha256": "69d1f98489bf42768d6593743cf6d2b71aefecdd74ff9baa27699a443d5d4ecf",
+      "bytes": 1681
+    },
+    {
+      "path": "source/include/macws_file_copy.h",
+      "sha256": "74b98ad3ab9b70c542c2e7f9d773105fef32fedb6e898086b2eb9a4f82d4e309",
+      "bytes": 3176
+    },
+    {
+      "path": "source/include/macws_final_composite_protocol.h",
+      "sha256": "1bd08dc82048482f4643fdac3eabf0e2cf3c6b738a41ddc6e0683573b3462e99",
+      "bytes": 5730
+    },
+    {
+      "path": "source/include/macws_host_protocol.h",
+      "sha256": "d8e9f5fff415fd70958a4ee97f26b4473e22173b84e294d99893de35cb248223",
+      "bytes": 26016
+    },
+    {
+      "path": "source/include/macws_interop_protocol.h",
+      "sha256": "2709a40ce69b0b9e6e7dbc22552aa7fe20986a71758994a904f92e5fa5807f59",
+      "bytes": 4872
+    },
+    {
+      "path": "source/include/macws_iosurface_layout_abi.h",
+      "sha256": "1f2e07f6f5c4fb88aaca7abd76a6f4670dd6831cc66dc8cf095defe0e9b06c20",
+      "bytes": 2488
+    },
+    {
+      "path": "source/include/macws_iosurface_protection_abi.h",
+      "sha256": "3c2113e3013dd241f7a037fe070a667fb6f49024a0ab79fbeaf575db27cf9bb4",
+      "bytes": 912
+    },
+    {
+      "path": "source/include/macws_keyboard_source.h",
+      "sha256": "4d747101af463e9d941faf73aa384be51b26c36f4181ede99260a06a2a628d9b",
+      "bytes": 3278
+    },
+    {
+      "path": "source/include/macws_keyboard_state.h",
+      "sha256": "ed2f1a9b0f4e965a328b14314c9b992d6ffe0a88b8f82f9914778314b16d9624",
+      "bytes": 8321
+    },
+    {
+      "path": "source/include/macws_keychain_protocol.h",
+      "sha256": "d2ce5330654114166fa143648b334c00132e9f464c4a89ce16e2e4f42c4323e1",
+      "bytes": 558
+    },
+    {
+      "path": "source/include/macws_macho_arch.h",
+      "sha256": "826f13313830933d50e6b37b062050611034c2c6751ab00191bef077246d453b",
+      "bytes": 4332
+    },
+    {
+      "path": "source/include/macws_menu_protocol.h",
+      "sha256": "4713cf70aff72a3410592f4db6a88419fd4615c9c0b898d41352d08e87905943",
+      "bytes": 6418
+    },
+    {
+      "path": "source/include/macws_metal_dag_request.h",
+      "sha256": "5a9d2d85739c12820e40b41dda494a3a7948ee7ba93693d8f05918580fab1eb6",
+      "bytes": 5664
+    },
+    {
+      "path": "source/include/macws_metal_image_filter_request.h",
+      "sha256": "f7a1e0fcc35923a5fd679ffb11aff6a53744c7daef8d4d8f10708a709fc2d991",
+      "bytes": 5364
+    },
+    {
+      "path": "source/include/macws_nocopy_abi.h",
+      "sha256": "cdb53f35d3b38dc80721e38c75d75ddd477061cf7c5cddfe8d7b125d8f37f9c4",
+      "bytes": 3859
+    },
+    {
+      "path": "source/include/macws_pointer_activation.h",
+      "sha256": "fb5b6d38043b1994ec7868595d8bba72c17f555c4f41401cba87a50e7319823f",
+      "bytes": 1781
+    },
+    {
+      "path": "source/include/macws_power_lifecycle.h",
+      "sha256": "8a4e196731a8940953b477f76c43698278d5b80387f654742f31f091d7135929",
+      "bytes": 724
+    },
+    {
+      "path": "source/include/macws_process_ancestry.h",
+      "sha256": "323abc70eef760fc5210ac5d860394d1c2a45b2f4674d8644f289a97dac0b6fa",
+      "bytes": 1969
+    },
+    {
+      "path": "source/include/macws_production_policy.h",
+      "sha256": "5d9601f080f9155f6af6fd9b292185e505c1ed4dffa75393abe5d1cd38c35a3d",
+      "bytes": 579
+    },
+    {
+      "path": "source/include/macws_resize_gesture.h",
+      "sha256": "bbcb1dcec041a7648d89a9e0e30058d95800dd268aeaa38cdc56c608759673a4",
+      "bytes": 791
+    },
+    {
+      "path": "source/include/macws_settings_bridge_notify.h",
+      "sha256": "446b30ad052a9f34272621544e6e13bc46150b712b3f0720ea437026821ed70b",
+      "bytes": 2237
+    },
+    {
+      "path": "source/include/macws_settings_bridge_protocol.h",
+      "sha256": "4f81294d61d8ede857879d526975bcebcf004a3eca10d48370761d96d4dc16ec",
+      "bytes": 1107
+    },
+    {
+      "path": "source/include/macws_settings_paths.h",
+      "sha256": "7c10ddc100071b8f098354918d0347787a9d750c7b95a799c8c717c0803709ca",
+      "bytes": 1875
+    },
+    {
+      "path": "source/include/macws_steam_mach_rendezvous_protocol.h",
+      "sha256": "e2ea0a40d3cbf8e9b66290d04d8ed29cdbb176e05886eefd726c2dfe7ff8dce0",
+      "bytes": 553
+    },
+    {
+      "path": "source/include/macws_steam_semaphore_protocol.h",
+      "sha256": "cbe298f05abc9e843605d9fb582a68f5976875b2e3ee8f6ddb6adc61833ae3f7",
+      "bytes": 3951
+    },
+    {
+      "path": "source/include/macws_stream_protocol.h",
+      "sha256": "7e8d050a847260373ba3067f29456c81989465db58b0c165c569eca2f5771ec7",
+      "bytes": 26604
+    },
+    {
+      "path": "source/include/macws_switcher_selection.h",
+      "sha256": "d9a8c1f1df4296b1f0de6cf23550e2135eab18e647899a5677aa2d5d2e7ab320",
+      "bytes": 2260
+    },
+    {
+      "path": "source/include/macws_touch_policy.h",
+      "sha256": "995f1f1c8fc8f4686a8ddf12bac6b9fb7592ab1a79522944a6e04df4d7d39eff",
+      "bytes": 14867
+    },
+    {
+      "path": "source/include/macws_viewport_math.h",
+      "sha256": "54df1e67d9f231ebfe15428feb14eb3de72a220e94f5d7710672bb9344441044",
+      "bytes": 8676
+    },
+    {
+      "path": "source/include/macws_vnc_profile.h",
+      "sha256": "7cfe338ebcc36213113e109fafcae5fd7ffe447f086e5d650e5f57a358f82e55",
+      "bytes": 9903
+    },
+    {
+      "path": "source/include/macws_webkit_services.h",
+      "sha256": "5798c5449a421a89c9c3a4ee4f0349c36a2c92cabb0ba1b65020067041350dd0",
+      "bytes": 1571
+    },
+    {
+      "path": "source/include/macws_window_configuration.h",
+      "sha256": "e6c09db262c4b55bd68d282ed855ce0dd8e22bdebc10511e125c5e2d5b8b8352",
+      "bytes": 4994
+    },
+    {
+      "path": "source/include/macws_windowing_notify.h",
+      "sha256": "160349bf8e12b1730f39f398eb829f683025f4bd24bcee9a64af7075aff29350",
+      "bytes": 2606
+    },
+    {
+      "path": "source/include/macws_windowing_protocol.h",
+      "sha256": "7c2645b4af39215281a97b24375f1b5eb212ee296ec36deb9365635df7acc930",
+      "bytes": 1435
+    },
+    {
+      "path": "source/interpose.h",
+      "sha256": "f2ffb879d834f739ab625a025fbeacd0e3890007a164a021e63ccbb144828b64",
+      "bytes": 381
+    },
+    {
+      "path": "source/IOMobileFramebuffer.h",
+      "sha256": "d762f0bdfb0d6e626be6bee5a0b2eb26041ba8d74876afd6b93212009c02668e",
+      "bytes": 1222
+    },
+    {
+      "path": "source/libmachook/AppInputBridge.m",
+      "sha256": "d9c8d0aca662316b96199e3ed6a6345abe726591c37ebe6cf1b19bd3f3550b74",
+      "bytes": 607779
+    },
+    {
+      "path": "source/libmachook/AudioRenderBridge.m",
+      "sha256": "1ead3bf6b94b3ea57d21a33b0625db0f9b907dfed317c22923cdc659e562fe9a",
+      "bytes": 27685
+    },
+    {
+      "path": "source/libmachook/Compatibility/MacWSAppleNeuralEngine.m",
+      "sha256": "7b7e13dca3f3725617529becf4055d5931d18bde3e19b5f3340247a99d8e8a8c",
+      "bytes": 31527
+    },
+    {
+      "path": "source/libmachook/Compatibility/MacWSCatalystInputPolicy.h",
+      "sha256": "f3019050ebe70b04f439c3957867298866ed6bbb1fe0b7234c20e52ea536df34",
+      "bytes": 437
+    },
+    {
+      "path": "source/libmachook/Compatibility/MacWSCatalystInputPolicy.m",
+      "sha256": "ef3237abc7382667df97d6517ec659e21d2896c494e686071b02f7dbd8c126be",
+      "bytes": 1483
+    },
+    {
+      "path": "source/libmachook/Compatibility/MacWSCatalystKeychain.m",
+      "sha256": "6d5b6b91bac068605caca79a57188997805bd299d689cbcc2d6955de9fe99c0c",
+      "bytes": 6985
+    },
+    {
+      "path": "source/libmachook/Compatibility/MacWSElectronPageAllocator.c",
+      "sha256": "37a91acc4c3acced00972b2ceaff53999b15cedced5b2e98884f2f9962c7c283",
+      "bytes": 7178
+    },
+    {
+      "path": "source/libmachook/Compatibility/MacWSIOKitRegistry.m",
+      "sha256": "3680f59671e9928ad321a9d71b1377307da89d39c95d1a2ddaff36650d0baa3f",
+      "bytes": 1949
+    },
+    {
+      "path": "source/libmachook/Compatibility/MacWSOfficeMultiplyFilter.m",
+      "sha256": "eb7b3a508933b826764d3603578c1589b9d130818779ad9dd8793298186bec23",
+      "bytes": 2301
+    },
+    {
+      "path": "source/libmachook/Compatibility/MacWSSendfile.c",
+      "sha256": "41ee8b65667b94e45d3ef5e847092255349613444e4547afa4cd4487852aa5b9",
+      "bytes": 7763
+    },
+    {
+      "path": "source/libmachook/Compatibility/MacWSSteamNamedSemaphore.c",
+      "sha256": "f635d56b63114532a508022208e3856b8f9bc13f135a35ba5a7ca940533f433b",
+      "bytes": 72330
+    },
+    {
+      "path": "source/libmachook/Compatibility/MacWSSteamProcess.m",
+      "sha256": "5529d5ff202533d2bc984cd0dba3f108a3a1e7dcf2326bda698dbd8da4d92287",
+      "bytes": 90617
+    },
+    {
+      "path": "source/libmachook/Compatibility/MacWSSublimeProcess.m",
+      "sha256": "91491efd1239831f9756f78978ea6fd93154f62b6dd256a90c32dd42588c067a",
+      "bytes": 9763
+    },
+    {
+      "path": "source/libmachook/Compatibility/MacWSSysVSemaphore.c",
+      "sha256": "8a65c4b47e5857efdcfeec9cb93dce44a4d88fdee5bc1400530890e71d13b829",
+      "bytes": 16966
+    },
+    {
+      "path": "source/libmachook/ControlCenter_hooks.x",
+      "sha256": "275e24465afd95c1802f82ead8f19098c92a1f8c490fa1e2584009fb29ca64ac",
+      "bytes": 1033
+    },
+    {
+      "path": "source/libmachook/Diagnostics/MacWSIdentityDiagnostics.h",
+      "sha256": "23513d0b49e784053083d174716952c4c9ddafab5d43cd6343f0472dab7512a8",
+      "bytes": 482
+    },
+    {
+      "path": "source/libmachook/Diagnostics/MacWSIdentityDiagnostics.m",
+      "sha256": "de2b22c5d799456051559728f1a1945190d7fc9936a7b36898e547c0fbed8c33",
+      "bytes": 4569
+    },
+    {
+      "path": "source/libmachook/Diagnostics/MacWSInputLatency.h",
+      "sha256": "ca6063891136bb0a1352f1ef705d43b5b212f1c538484e6c2cedf8c528a3a85b",
+      "bytes": 1234
+    },
+    {
+      "path": "source/libmachook/Diagnostics/MacWSInputLatency.m",
+      "sha256": "fab22837e050fb4a7b32f7bb6a110405f234dd9205bd04fe53032e093400d960",
+      "bytes": 6857
+    },
+    {
+      "path": "source/libmachook/Diagnostics/MacWSRandomDiagnostics.m",
+      "sha256": "09d87da6f0dd1e8b88517fcbbb613e2ff7e168e75020b38fbba435e1e0b712e9",
+      "bytes": 7677
+    },
+    {
+      "path": "source/libmachook/Diagnostics/MacWSSteamPipeDiagnostics.m",
+      "sha256": "c22e83a60df8d749c933a5b3b9c4b2ec3ee675d0ff3d23d379b74bed1c77a335",
+      "bytes": 36212
+    },
+    {
+      "path": "source/libmachook/DNSBridge.c",
+      "sha256": "cf336b1dac8beb0d512b29044612bfda2f698176de5ab854bc114b77f4e88b0f",
+      "bytes": 9570
+    },
+    {
+      "path": "source/libmachook/exec_hooks.c",
+      "sha256": "d5950a5aa394d274938b94528c27d7b4fd5d9ebb6f7b260b9f5950ebd751665c",
+      "bytes": 28148
+    },
+    {
+      "path": "source/libmachook/jit.m",
+      "sha256": "3ad7374b5cf4c489cae6dff1be20c9fd79da7a73c4660aaf20eafe33736b402d",
+      "bytes": 3365
+    },
+    {
+      "path": "source/libmachook/LocalFilePanel.m",
+      "sha256": "a09958f10b48feaa6c0fce77db167b19bd940e19ffd5341b54e41877df42316b",
+      "bytes": 5841
+    },
+    {
+      "path": "source/libmachook/mac_hooks.m",
+      "sha256": "900e5bbf2a6b51cf6d09f6077e8f495ba06710ac73d3beae47d8c60ec32ac97d",
+      "bytes": 1238745
+    },
+    {
+      "path": "source/libmachook/MacWSFinalCompositePublisher.h",
+      "sha256": "3c0ed3419139f26600a962c56e5506d0a31f65f8338f18de79429e15671a431a",
+      "bytes": 1090
+    },
+    {
+      "path": "source/libmachook/MacWSFinalCompositePublisher.m",
+      "sha256": "a63cd14ac3672cfbec7ee3960044695692de8f70a2ae3386a395650c4b0abb25",
+      "bytes": 40365
+    },
+    {
+      "path": "source/libmachook/Makefile",
+      "sha256": "a424be668a4bd730c1a491ced8cb8b4a67330664c804238d254e249c5281936d",
+      "bytes": 4111
+    },
+    {
+      "path": "source/libmachook/Metal_hooks.x",
+      "sha256": "f2a4b3b8112b87d826b1a1b4e1723c71bfca3ba7a931df5388fa9ad4ae3d30bf",
+      "bytes": 1197206
+    },
+    {
+      "path": "source/libmachook/objc_hooks.c",
+      "sha256": "e0295311c55a3f737592cc801166353677756e8528a2952abf7601cb574460d2",
+      "bytes": 444
+    },
+    {
+      "path": "source/libmachook/os_log_hooks.m",
+      "sha256": "7093d5c6a3c973b26915521f91463a608a7f68379f5f8c22c4e5c33d756c6ebd",
+      "bytes": 10367
+    },
+    {
+      "path": "source/libmachook/os_variant_hooks.x",
+      "sha256": "b65db0f96a4a7a2fbff3eaee562b0f57b5b1ca46c41c5e7985d1648185190efa",
+      "bytes": 1477
+    },
+    {
+      "path": "source/libmachook/QuartzCore_hooks.x",
+      "sha256": "ff1eb6e2c65a0812fa403df300e129778ee1834f21a77147e1a2c073895e8035",
+      "bytes": 1345
+    },
+    {
+      "path": "source/libmachook/utils.h",
+      "sha256": "0fdab3173903245cfed6a1da2d37491f359c0ac968ab624b88eed65b0fda9724",
+      "bytes": 138
+    },
+    {
+      "path": "source/vendor/ios-xpc/README.md",
+      "sha256": "adf01c7685ed05b393ce029c7fab9e29cf12f15326f6fe681c81ecd302f7f82d",
+      "bytes": 1079
+    },
+    {
+      "path": "source/vendor/ios-xpc/xpc/activity.h",
+      "sha256": "8dcab5a3ba8daacc63d7bd6552396097dd2f8d749079e1a6f3fe390b92677d34",
+      "bytes": 16579
+    },
+    {
+      "path": "source/vendor/ios-xpc/xpc/availability.h",
+      "sha256": "371b72f79cffb4d0c34df55c0e83bc0358abfabdab46d43ef8e92eec689c9f14",
+      "bytes": 4312
+    },
+    {
+      "path": "source/vendor/ios-xpc/xpc/base.h",
+      "sha256": "06acfe4c83c3341e2f05e6810df56603669cbf676c5a6c381d06731e007b00f5",
+      "bytes": 7682
+    },
+    {
+      "path": "source/vendor/ios-xpc/xpc/connection.h",
+      "sha256": "6e30d71cacb68677b8a2ba178a3b79fdc2e34e8262b5c6c8245edfe14412cbf0",
+      "bytes": 43926
+    },
+    {
+      "path": "source/vendor/ios-xpc/xpc/debug.h",
+      "sha256": "494edda0b7dead4bf4382c7e1c0564a8175a25eb6d40b94303e82497f58d69fc",
+      "bytes": 755
+    },
+    {
+      "path": "source/vendor/ios-xpc/xpc/endpoint.h",
+      "sha256": "360df5662cbc16a7ff5628a2472f2f58a4f509621035068226a1ba5e22c32499",
+      "bytes": 715
+    },
+    {
+      "path": "source/vendor/ios-xpc/xpc/peer_requirement.h",
+      "sha256": "18361920a4f6556f47e2205cb5a79da4148a70f5cb1d4fc2c4b9b23c2912e798",
+      "bytes": 8951
+    },
+    {
+      "path": "source/vendor/ios-xpc/xpc/rich_error.h",
+      "sha256": "fd08fc80d479ca47bfb5d47772df281fc326ce0bdd09f3386ae491470c45f0c1",
+      "bytes": 1217
+    },
+    {
+      "path": "source/vendor/ios-xpc/xpc/xpc.h",
+      "sha256": "5aa9cbe4ef8be82f28060a7cf927e44268cd8cda1eeb4d3c0d737f721984e968",
+      "bytes": 85075
+    }
+  ],
+  "vnc_fixture": {
+    "original_artifact_sha256": "a9f899c751b1fff763acf15b9a43fe287715a0d81305822a8b9b56c7de337465",
+    "original_bytes": 478496,
+    "extraction": "exact bytes [0,32+sizeofcmds)",
+    "extracted_bytes": 4232,
+    "extracted_sha256": "19037f763753785d6968e93a4c30b6c863fb51579b64f455680f209f8c4d6be9",
+    "not_executable": true
+  }
+}
