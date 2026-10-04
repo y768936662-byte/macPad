@@ -1166,6 +1166,11 @@
       "path": "source/vendor/ios-xpc/xpc/xpc.h",
       "sha256": "5aa9cbe4ef8be82f28060a7cf927e44268cd8cda1eeb4d3c0d737f721984e968",
       "bytes": 85075
+    },
+    {
+      "path": "source/include/Darwin/Darwin.h",
+      "bytes": 5749,
+      "sha256": "bcd58ff8d5be85ac9d95d5a31b40fff0a12223a82785e2ebd68d12c349b6999a"
     }
   ],
   "vnc_fixture": {
@@ -1175,5 +1180,15 @@
     "extracted_bytes": 4232,
     "extracted_sha256": "19037f763753785d6968e93a4c30b6c863fb51579b64f455680f209f8c4d6be9",
     "not_executable": true
-  }
+  },
+  "additional_project_dependencies": [
+    {
+      "path": "source/include/Darwin/Darwin.h",
+      "origin": "existing project-root Darwin.h (outside the mirror; not an Apple SDK header)",
+      "raw_sha256": "bcd58ff8d5be85ac9d95d5a31b40fff0a12223a82785e2ebd68d12c349b6999a",
+      "normalized_sha256": "bcd58ff8d5be85ac9d95d5a31b40fff0a12223a82785e2ebd68d12c349b6999a",
+      "role": "only public C/POSIX/Mach/Mach-O includes; no invented declarations or stubs",
+      "reason": "actual both-architecture compiler failure in run37203269492"
+    }
+  ]
 }
