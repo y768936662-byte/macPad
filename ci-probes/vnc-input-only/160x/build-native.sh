@@ -30,10 +30,26 @@ test -d "$sdk"
   git -C "$RUNNER_TEMP/macpad-compile-sdks" rev-parse HEAD
   brew list --versions make ldid dpkg git-lfs
 } > "$out/toolchain.txt"
-gmake -C "$stage/libmachook" clean all \
-  FINALPACKAGE=1 STRIP=0 OPTFLAG=-O2 SDKVERSION=16.5 \
-  THEOS_PACKAGE_SCHEME=rootless GO_EASY_ON_ME=1 \
-  LIBMACHOOK_ON_DEVICE_BUILD=0 2>&1 | tee "$out/native-build.log"
+make_args=(FINALPACKAGE=1 STRIP=0 OPTFLAG=-O2 \
+  TARGET=iphone:clang:16.5:14.0 SDKVERSION=16.5 INCLUDE_SDKVERSION=16.5 \
+  "SYSROOT=$sdk" "ISYSROOT=$sdk" \
+  THEOS_PACKAGE_SCHEME=rootless GO_EASY_ON_ME=1 LIBMACHOOK_ON_DEVICE_BUILD=0)
+# Query the actual pinned Theos make variables, not the requested directory.
+cat > "$out/check-sdk.mk" <<'MAKE'
+codex-check-build-sdk:
+	@printf '%s\n' '$(SYSROOT)' '$(ISYSROOT)' '$(_THEOS_TARGET_SDK_VERSION)' '$(_THEOS_TARGET_INCLUDE_SDK_VERSION)'
+MAKE
+gmake --no-print-directory -s -C "$stage/libmachook" -f Makefile \
+  -f "$out/check-sdk.mk" codex-check-build-sdk "${make_args[@]}" \
+  > "$out/resolved-theos-sdk.txt"
+python3 - "$out/resolved-theos-sdk.txt" "$sdk" <<'PY'
+import sys
+rows=open(sys.argv[1]).read().splitlines()
+assert rows[-4:]==[sys.argv[2],sys.argv[2],'16.5','16.5'],rows
+print('Actual Theos compile/link SDK roots resolved to pinned 16.5')
+PY
+gmake -C "$stage/libmachook" clean all "${make_args[@]}" messages=yes \
+  2>&1 | tee "$out/native-build.log"
 fat="$stage/libmachook/.theos/obj/libmachook.dylib"
 test -f "$fat"
 python3 - "$fat" <<'PY'
