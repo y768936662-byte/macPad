@@ -33,6 +33,7 @@ test -d "$sdk"
 make_args=(FINALPACKAGE=1 STRIP=0 OPTFLAG=-O2 \
   TARGET=iphone:clang:16.5:14.0 SDKVERSION=16.5 INCLUDE_SDKVERSION=16.5 \
   "SYSROOT=$sdk" "ISYSROOT=$sdk" \
+  ADDITIONAL_LDFLAGS=-Wl,-fixup_chains \
   THEOS_PACKAGE_SCHEME=rootless GO_EASY_ON_ME=1 LIBMACHOOK_ON_DEVICE_BUILD=0)
 # Query the actual pinned Theos make variables, not the requested directory.
 cat > "$out/check-sdk.mk" <<'MAKE'
@@ -65,6 +66,25 @@ for arch in arm64 arm64e; do
   xcrun otool -hv -l "$thin" > "$out/libraries/$arch.load-commands.txt"
   xcrun otool -L "$thin" > "$out/libraries/$arch.dependencies.txt"
   xcrun nm -u "$thin" > "$out/libraries/$arch.undefined-symbols.txt"
+  python3 - "$thin" <<'PY'
+import struct,sys
+from pathlib import Path
+data=Path(sys.argv[1]).read_bytes()
+assert len(data)>=32
+magic,cpu,subtype,kind,count,extent,flags,reserved=struct.unpack_from('<8I',data)
+assert magic==0xfeedfacf and cpu==0x100000c and kind==6
+assert count<=4096 and 32+extent<=len(data)
+cursor=32; commands=[]
+for _ in range(count):
+    assert cursor+8<=32+extent
+    cmd,size=struct.unpack_from('<2I',data,cursor)
+    assert size>=8 and cursor+size<=32+extent
+    commands.append(cmd); cursor+=size
+assert cursor==32+extent
+assert 0x80000034 in commands,'Missing LC_DYLD_CHAINED_FIXUPS'
+assert 0x80000022 not in commands,'Classic LC_DYLD_INFO_ONLY is not the required artifact format'
+print('Actual linked library has chained fixups and no classic fixup command')
+PY
   for name in test_vnc_backend_selector test_vnc_namespace test_vnc_profile; do
     xcrun clang -target "$arch-apple-ios14.0" -isysroot "$sdk" \
       -std=c11 -Wall -Wextra -I"$stage/include" "$probe/fixtures/$name.c" \
