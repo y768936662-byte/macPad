@@ -34,7 +34,7 @@ make_args=(FINALPACKAGE=1 STRIP=0 OPTFLAG=-O2 \
   TARGET=iphone:clang:16.5:14.0 SDKVERSION=16.5 INCLUDE_SDKVERSION=16.5 \
   "SYSROOT=$sdk" "ISYSROOT=$sdk" \
   ADDITIONAL_LDFLAGS=-Wl,-ld_classic,-fixup_chains \
-  THEOS_PACKAGE_SCHEME=rootless GO_EASY_ON_ME=1 LIBMACHOOK_ON_DEVICE_BUILD=0)
+  THEOS_PACKAGE_SCHEME=rootless GO_EASY_ON_ME=1 LIBMACHOOK_ON_DEVICE_BUILD=1)
 # Query the actual pinned Theos make variables, not the requested directory.
 cat > "$out/check-sdk.mk" <<'MAKE'
 codex-check-build-sdk:
