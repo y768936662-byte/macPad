@@ -3067,8 +3067,33 @@ static BOOL macws_has_verified_chroot_namespace(void) {
         if (stat("/", &root) != 0 || statfs("/", &filesystem) != 0) return;
         int received = proc_pidinfo(getpid(), MacWSRootVnodeFlavor, 0,
                                     &record, sizeof(record));
+        if (macws_runtime_diagnostics_enabled() || getenv("MACWS_APP_MOUNT_TRACE")) {
+            uint32_t actualDevice = 0;
+            uint16_t actualMode = 0;
+            uint64_t actualInode = 0;
+            fsid_t actualFSID = {{0, 0}};
+            const char *actualPath = (const char *)record.bytes + MacWSRootVnodePathOffset;
+            memcpy(&actualDevice, record.bytes + MacWSRootVnodeDeviceOffset, sizeof(actualDevice));
+            memcpy(&actualMode, record.bytes + MacWSRootVnodeModeOffset, sizeof(actualMode));
+            memcpy(&actualInode, record.bytes + MacWSRootVnodeInodeOffset, sizeof(actualInode));
+            memcpy(&actualFSID, record.bytes + MacWSRootVnodeFSIDOffset, sizeof(actualFSID));
+            fprintf(stderr,
+                "#### MACWS-CHROOT-IDENTITY probe received=%d "
+                "actual(dev=%u ino=%llu mode=%#o fsid=(%d,%d) path0=%#x) "
+                "expected(dev=%llu ino=%llu mode=%#o fsid=(%d,%d))\n",
+                received,
+                actualDevice,
+                (unsigned long long)actualInode,
+                (unsigned int)actualMode,
+                actualFSID.val[0], actualFSID.val[1],
+                actualPath ? (unsigned char)actualPath[0] : 0,
+                (unsigned long long)root.st_dev,
+                (unsigned long long)root.st_ino,
+                (unsigned int)root.st_mode,
+                filesystem.f_fsid.val[0], filesystem.f_fsid.val[1]);
+        }
         if (!MacWSRootVnodeMatchesProcessRoot(&record, received, &root,
-                                             &filesystem)) return;
+                                              &filesystem)) return;
         macws_chroot_identity_filesystem = filesystem;
         macws_chroot_identity_verified = YES;
     });

@@ -555,10 +555,10 @@
     },
     {
       "path": "libmachook/Metal_hooks.x",
-      "raw_sha256": "f2a4b3b8112b87d826b1a1b4e1723c71bfca3ba7a931df5388fa9ad4ae3d30bf",
-      "lf_sha256": "f2a4b3b8112b87d826b1a1b4e1723c71bfca3ba7a931df5388fa9ad4ae3d30bf",
-      "bytes": 1197206,
-      "normalized_crlf": 0
+      "raw_sha256": "05b256677ae353768aa1de21d258f5b8dd5c9830a02677da52f6215e909d9f53",
+      "lf_sha256": "b210e754995194b27edfe9b41c25e2ea8beefc36cfb11cdf3ea3571ceed6babc",
+      "bytes": 1223453,
+      "normalized_crlf": 24804
     },
     {
       "path": "libmachook/objc_hooks.c",
@@ -1089,8 +1089,8 @@
     },
     {
       "path": "source/libmachook/Metal_hooks.x",
-      "sha256": "f2a4b3b8112b87d826b1a1b4e1723c71bfca3ba7a931df5388fa9ad4ae3d30bf",
-      "bytes": 1197206
+      "sha256": "b210e754995194b27edfe9b41c25e2ea8beefc36cfb11cdf3ea3571ceed6babc",
+      "bytes": 1198649
     },
     {
       "path": "source/libmachook/objc_hooks.c",
@@ -1192,5 +1192,14 @@
       "compatibility_change": "TargetConditionals.h restricts unsupported mach/mach_vm.h import to TARGET_OS_OSX; iOS Mach declarations remain in existing mac_hooks.m",
       "unmodified_origin_normalized_sha256": "bcd58ff8d5be85ac9d95d5a31b40fff0a12223a82785e2ebd68d12c349b6999a"
     }
-  ]
+  ],
+  "diagnostic_refresh": {
+    "captured_at": "2026-10-05T10:59:27.035433+08:00",
+    "source_raw_sha256": "05b256677ae353768aa1de21d258f5b8dd5c9830a02677da52f6215e909d9f53",
+    "source_lf_sha256": "b210e754995194b27edfe9b41c25e2ea8beefc36cfb11cdf3ea3571ceed6babc",
+    "original_source_sha256": "f2a4b3b8112b87d826b1a1b4e1723c71bfca3ba7a931df5388fa9ad4ae3d30bf",
+    "scope": "25 diagnostic lines and one indentation change only; identity gate unchanged",
+    "all_94_current_raw_inputs_verified": true,
+    "device_actions": false
+  }
 }
