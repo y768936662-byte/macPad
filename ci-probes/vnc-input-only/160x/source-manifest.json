@@ -1169,8 +1169,8 @@
     },
     {
       "path": "source/include/Darwin/Darwin.h",
-      "bytes": 5749,
-      "sha256": "bcd58ff8d5be85ac9d95d5a31b40fff0a12223a82785e2ebd68d12c349b6999a"
+      "bytes": 5937,
+      "sha256": "c9a5a84c182301d5b71e876e57e55fa3fffaef11989dd0b917c011a0a2663a27"
     }
   ],
   "vnc_fixture": {
@@ -1186,9 +1186,11 @@
       "path": "source/include/Darwin/Darwin.h",
       "origin": "existing project-root Darwin.h (outside the mirror; not an Apple SDK header)",
       "raw_sha256": "bcd58ff8d5be85ac9d95d5a31b40fff0a12223a82785e2ebd68d12c349b6999a",
-      "normalized_sha256": "bcd58ff8d5be85ac9d95d5a31b40fff0a12223a82785e2ebd68d12c349b6999a",
+      "normalized_sha256": "c9a5a84c182301d5b71e876e57e55fa3fffaef11989dd0b917c011a0a2663a27",
       "role": "only public C/POSIX/Mach/Mach-O includes; no invented declarations or stubs",
-      "reason": "actual both-architecture compiler failure in run37203269492"
+      "reason": "exact run37207545980 compiled using verified iPhoneOS16.5 and failed at its unsupported mach_vm.h sentinel",
+      "compatibility_change": "TargetConditionals.h restricts unsupported mach/mach_vm.h import to TARGET_OS_OSX; iOS Mach declarations remain in existing mac_hooks.m",
+      "unmodified_origin_normalized_sha256": "bcd58ff8d5be85ac9d95d5a31b40fff0a12223a82785e2ebd68d12c349b6999a"
     }
   ]
 }

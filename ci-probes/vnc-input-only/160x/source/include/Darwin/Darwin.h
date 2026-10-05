@@ -19,6 +19,7 @@
 #ifndef __DARWIN_UMBRELLA_H__
 #define __DARWIN_UMBRELLA_H__
 
+#include <TargetConditionals.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -173,7 +174,9 @@
 #if __has_include(<mach/mach_time.h>)
 #include <mach/mach_time.h>
 #endif
-#if __has_include(<mach/mach_vm.h>)
+// iPhoneOS ships this path as an unsupported-header sentinel.
+// mac_hooks.m owns its explicit mach_vm_* declarations for the iOS target.
+#if TARGET_OS_OSX && __has_include(<mach/mach_vm.h>)
 #include <mach/mach_vm.h>
 #endif
 #if __has_include(<mach/vm_map.h>)
