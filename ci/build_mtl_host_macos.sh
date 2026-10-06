@@ -82,14 +82,22 @@ echo "    产物: $OUT_BIN"
 OUT_PLIST=$(dirname "$OUT_BIN")/../../Info.plist
 [ -f "$OUT_PLIST" ] || OUT_PLIST=$(find MTLSimDriverHost/.theos/obj -name "Info.plist" -path "*MTLSimDriverHost.xpc*" 2>/dev/null | head -1)
 
-echo "==> [3/4] 验证 platform=1（macOS）+ 签名"
-# LC_BUILD_VERSION platform 必须是 1 (macOS)。铁证 H：platform 2/7 进 chroot 被 dyld 拒载。
+echo "==> [3/4] 验证 platform（macOS）+ 签名"
+# LC_BUILD_VERSION platform 必须是 macOS。vtool 输出两种格式：
+#   新版：platform MACOS     旧版：platform 1
+# 铁证 H：iOS/IOSSIMULATOR 平台进 chroot 被 dyld 拒载。
 PLAT=$(vtool -show-build "$OUT_BIN" 2>/dev/null | awk '/platform/ {print $2; exit}')
 echo "    platform = ${PLAT:-unknown}"
-[ "$PLAT" = "1" ] || { echo "ERROR: platform != 1 (macOS)，拒绝发布" >&2; exit 1; }
+case "$PLAT" in
+  1|MACOS|MACOSX) : ;;
+  *) echo "ERROR: platform=$PLAT 不是 macOS，拒绝发布" >&2; exit 1 ;;
+esac
 codesign -f -s - "$OUT_BIN"
 PLAT2=$(vtool -show-build "$OUT_BIN" 2>/dev/null | awk '/platform/ {print $2; exit}')
-[ "$PLAT2" = "1" ] || { echo "ERROR: 签名后 platform 变了" >&2; exit 1; }
+case "$PLAT2" in
+  1|MACOS|MACOSX) : ;;
+  *) echo "ERROR: 签名后 platform 变了 ($PLAT2)" >&2; exit 1 ;;
+esac
 
 cp -f "$OUT_BIN" "$DIST/MTLSimDriverHost"
 if [ -n "${OUT_PLIST:-}" ] && [ -f "$OUT_PLIST" ]; then
