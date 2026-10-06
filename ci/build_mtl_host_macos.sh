@@ -52,9 +52,17 @@ fi
 
 echo "==> [2/4] 编 MTLSimDriverHost（macosx:clang → platform=1 macOS）"
 # TARGET 传给 make 覆盖 Makefile 默认值（?=），出 macOS 平台二进制。
+# 注意不要过滤输出——错误详情要进 CI 日志。
+set +e
 "$GMAKE" -C MTLSimDriverHost clean all \
     TARGET=macosx:clang FINALPACKAGE=1 STRIP=0 OPTFLAG=-O2 \
-    GO_EASY_ON_ME=1 ARCHS=arm64 2>&1 | tail -5
+    GO_EASY_ON_ME=1 ARCHS=arm64
+RC=$?
+set -e
+if [ "$RC" != "0" ]; then
+  echo "ERROR: make rc=$RC —— 上面是完整编译输出" >&2
+  exit 1
+fi
 
 # Theos bundle 产物：<dir>/.theos/obj/macosx/MTLSimDriverHost（flat xpc layout）
 OUT_BIN="MTLSimDriverHost/.theos/obj/macosx/MTLSimDriverHost"

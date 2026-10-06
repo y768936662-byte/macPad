@@ -1,0 +1,9 @@
+--- a/libmachook/mac_hooks.m
++++ b/libmachook/mac_hooks.m
+@@ -5730,7 +5730,7 @@
+-#if 0
++#if defined(MACWS_ENABLE_RENDER_UPDATE_CBZ)
+@@ -5832,7 +5832,7 @@
+-#endif
++#endif /* MACWS_ENABLE_RENDER_UPDATE_CBZ */
+
