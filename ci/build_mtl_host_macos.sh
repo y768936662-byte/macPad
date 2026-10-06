@@ -71,9 +71,16 @@ if [ "$RC" != "0" ]; then
   exit 1
 fi
 
-# Theos bundle 产物：<dir>/.theos/obj/macosx/MTLSimDriverHost（flat xpc layout）
-OUT_BIN="MTLSimDriverHost/.theos/obj/macosx/MTLSimDriverHost"
-[ -f "$OUT_BIN" ] || { echo "ERROR: 未产出 $OUT_BIN" >&2; exit 1; }
+# Theos bundle 产物（flat xpc layout）：二进制在
+#   <dir>/.theos/obj/macosx/arm64/MTLSimDriverHost.xpc/Contents/MacOS/MTLSimDriverHost
+# 或打包后 <dir>/.theos/obj/macosx/MTLSimDriverHost.xpc/... —— find 兜底。
+CAND1=$(find MTLSimDriverHost/.theos/obj -type f -name MTLSimDriverHost -path "*MacOS*" 2>/dev/null | head -1)
+OUT_BIN="${CAND1:-MTLSimDriverHost/.theos/obj/macosx/MTLSimDriverHost}"
+[ -f "$OUT_BIN" ] || { echo "ERROR: 未产出 $OUT_BIN" >&2; find MTLSimDriverHost/.theos -type f 2>/dev/null | head -20; exit 1; }
+echo "    产物: $OUT_BIN"
+# 同 bundle 的 Info.plist 一起带走（flat 布局）
+OUT_PLIST=$(dirname "$OUT_BIN")/../../Info.plist
+[ -f "$OUT_PLIST" ] || OUT_PLIST=$(find MTLSimDriverHost/.theos/obj -name "Info.plist" -path "*MTLSimDriverHost.xpc*" 2>/dev/null | head -1)
 
 echo "==> [3/4] 验证 platform=1（macOS）+ 签名"
 # LC_BUILD_VERSION platform 必须是 1 (macOS)。铁证 H：platform 2/7 进 chroot 被 dyld 拒载。
@@ -85,11 +92,12 @@ PLAT2=$(vtool -show-build "$OUT_BIN" 2>/dev/null | awk '/platform/ {print $2; ex
 [ "$PLAT2" = "1" ] || { echo "ERROR: 签名后 platform 变了" >&2; exit 1; }
 
 cp -f "$OUT_BIN" "$DIST/MTLSimDriverHost"
-# Info.plist：Theos 生成的 flat bundle 里就有
-if [ -f "MTLSimDriverHost/.theos/obj/macosx/MTLSimDriverHost/Info.plist" ]; then
-  :  # flat layout 产物本身是目录时复制目录
+if [ -n "${OUT_PLIST:-}" ] && [ -f "$OUT_PLIST" ]; then
+  cp -f "$OUT_PLIST" "$DIST/Info.plist"
+  echo "    Info.plist: $OUT_PLIST"
+else
+  echo "    （未找到 bundle Info.plist，设备侧用部署器内嵌的 plist）"
 fi
-find MTLSimDriverHost/.theos/obj -name "Info.plist" -newer MTLSimDriverHost/Makefile 2>/dev/null | head -3
 
 echo "==> [4/4] manifest"
 python3 - "$DIST" <<'PY'
