@@ -49,6 +49,13 @@ if ! ls "$THEOS"/sdks/MacOSX*.sdk >/dev/null 2>&1; then
   P="$(xcrun --sdk macosx --show-sdk-path)"; V="$(xcrun --sdk macosx --show-sdk-version)"
   ln -sfn "$P" "$THEOS/sdks/MacOSX${V}.sdk"; echo "    已链接 MacOSX${V}.sdk"
 fi
+# theos vendor/include 的 iOS 向 IOKit 头会与 macOS SDK 的 IOKit clang module
+# 打架（IOVirtualRange/IOPhysicalRange 重定义 → Foundation/CoreGraphics module
+# 构建失败）。macosx 构建一律用 SDK 自带的 IOKit，把 theos 的移走。
+if [ -d "$THEOS/vendor/include/IOKit" ]; then
+  mv "$THEOS/vendor/include/IOKit" "$THEOS/vendor/include/IOKit.iosbak"
+  echo "    已移走 theos vendor IOKit 头（macosx 构建用 SDK 版）"
+fi
 
 echo "==> [2/4] 编 MTLSimDriverHost（macosx:clang → platform=1 macOS）"
 # TARGET 传给 make 覆盖 Makefile 默认值（?=），出 macOS 平台二进制。
