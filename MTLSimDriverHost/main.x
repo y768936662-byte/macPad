@@ -3,23 +3,41 @@
 @import Metal;
 @import MetalPerformanceShaders;
 @import IOSurface;
-#ifndef TARGET_OS_NANO // macosx:clang build: no jailbreak rootless prefix exists
+// MACWS_MTLHOST_MACOS_BUILD is passed via -D by the Makefile's macosx:clang
+// branch (CI: ci/build_mtl_host_macos.sh). iOS builds pull the jailbreak
+// rootless prefix header + Substrate; macOS (chroot-side) builds do not.
+#ifndef MACWS_MTLHOST_MACOS_BUILD
 #include <rootless.h>
-#define MACWS_MTLHOST_MACOS_BUILD 0
-#else
-#define MACWS_MTLHOST_MACOS_BUILD 1
+#include <CydiaSubstrate/CydiaSubstrate.h>
 #endif
 #include <xpc/xpc.h>
+
+#ifdef MACWS_MTLHOST_MACOS_BUILD
+// macOS-platform build (chroot side): this binary runs inside the macOS
+// chroot where no jailbreak Substrate exists. Logos still preprocesses the
+// %hook below into __logosLocalInit → MSHookMessageEx, so we satisfy the
+// link with a local no-op stub (the Managed→Shared rewrite is an
+// iOS-simulator-only need; Managed storage is legal on macOS).
+#include <objc/runtime.h>
+static void MSHookMessageEx(Class cls, SEL sel, void *repl, void **orig) {
+    (void)cls; (void)sel; (void)repl; (void)orig;
+}
+#endif
 
 @interface MTLTextureDescriptorInternal : MTLTextureDescriptor
 @end
 %hook MTLTextureDescriptorInternal
 - (MTLStorageMode)storageMode {
     MTLStorageMode mode = %orig;
+#ifdef MACWS_MTLHOST_MACOS_BUILD
+    // macOS: keep Managed as-is (the stub MSHookMessageEx never installs
+    // this hook, but keep the body self-consistent if that ever changes).
+#else
     if(mode == 1) { // MTLStorageModeManaged
         self.storageMode = MTLStorageModeShared;
         return MTLStorageModeShared;
     }
+#endif
     return mode;
 }
 %end

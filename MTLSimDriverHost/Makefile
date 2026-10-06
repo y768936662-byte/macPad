@@ -8,7 +8,7 @@ TARGET ?= iphone:clang:latest:14.0
 ifeq ($(TARGET),macosx:clang)
 # macOS SDK ships xpc/ headers natively; the -isystem vendored iOS xpc path
 # would shadow them with iOS-only declarations.
-MTLSimDriverHost_CFLAGS = -fobjc-arc
+MTLSimDriverHost_CFLAGS = -fobjc-arc -DMACWS_MTLHOST_MACOS_BUILD=1
 else
 MTLSimDriverHost_CFLAGS = -fobjc-arc -isystem $(CURDIR)/../vendor/ios-xpc
 endif
