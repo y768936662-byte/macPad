@@ -1,0 +1,85 @@
+name: Build MTL host (macOS platform)
+
+# 产出 chroot 侧需要的 macOS 平台宿主组件（无需本地 Mac）：
+#   1. MTLSimDriverHost.xpc（仓库自建，含 surface_copy 端点）→ platform=1
+#   2. 从 macOS 13.4 dyld shared cache 抽出的原生 MTLSimDriver /
+#      MTLSimImplementation 主 dylib（platform=1，铁证 G/H/I 要求）
+#
+# 触发：手动 / push 改 MTLSimDriverHost、ci 脚本、本 workflow。
+# cache 抽取需要预先把 cryptex 的 cache 文件放进仓库 LFS 或用
+# workflow_dispatch input 指定的 artifact —— 默认只编 XPC（快、稳）。
+
+on:
+  workflow_dispatch:
+    inputs:
+      extract_cache:
+        description: '同时从本地携带的 dyld cache 抽主 dylib（需要 cache 文件在 repo/mtl-cache/ 下）'
+        type: boolean
+        default: false
+  push:
+    paths:
+      - 'MTLSimDriverHost/**'
+      - 'ci/build_mtl_host_macos.sh'
+      - 'ci/build_mtl_host_workflow.sh'
+      - '.github/workflows/mtl-host-macos.yml'
+
+jobs:
+  build:
+    runs-on: macos-14
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: 确认 Xcode 工具链
+        run: |
+          xcode-select -p
+          xcrun --sdk macosx --show-sdk-version
+          which vtool lipo codesign
+          python3 -V
+
+      - name: 安装构建工具（GNU make / ldid）
+        run: |
+          brew install make ldid
+          echo "$(brew --prefix)/opt/make/libexec/gnubin" >> "$GITHUB_PATH"
+
+      - name: 安装 Theos
+        run: |
+          export THEOS="$HOME/theos"
+          git clone --recursive https://github.com/theos/theos.git "$THEOS"
+          echo "THEOS=$THEOS" >> "$GITHUB_ENV"
+          echo "$THEOS/bin" >> "$GITHUB_PATH"
+
+      - name: 准备 macOS SDK 符号链接
+        run: |
+          export THEOS="${THEOS:-$HOME/theos}"
+          if ! ls "$THEOS"/sdks/MacOSX*.sdk >/dev/null 2>&1; then
+            P="$(xcrun --sdk macosx --show-sdk-path)"; V="$(xcrun --sdk macosx --show-sdk-version)"
+            ln -sfn "$P" "$THEOS/sdks/MacOSX${V}.sdk"
+            echo "已链接 MacOSX${V}.sdk"
+          fi
+          ls "$THEOS/sdks" | head
+
+      - name: 编 MTLSimDriverHost（macOS 平台）
+        run: bash ci/build_mtl_host_macos.sh
+
+      - name: 抽 cache 主 dylib（可选，需要 repo/mtl-cache/ 预置）
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.extract_cache }}
+        continue-on-error: true
+        run: |
+          if [ -d mtl-cache ] && ls mtl-cache/dyld_shared_cache_arm64e >/dev/null 2>&1; then
+            bash ci/build_mtl_host_macos.sh --extract-cache=mtl-cache
+          else
+            echo "repo/mtl-cache/ 无 cache 文件，跳过抽取（主 dylib 走本机 E: 盘 rootfs 通道）"
+          fi
+
+      - name: 上传产物
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mtl-host-macos
+          path: |
+            dist/mtl-host-macos/
+          if-no-files-found: error
+          retention-days: 30
