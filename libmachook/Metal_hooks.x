@@ -11621,6 +11621,66 @@ static const macws_fs_vtx_t macws_fs_triangle[3] = {
 };
 
 // XPC blur forward to MTLSimDriverHost (iOS Metal + MPSImageGaussianBlur).
+
+// ─── Q9 backing chain: surface_copy XPC client (chroot WS → host blit) ───
+// Data flow (analysis/codex-q9-backing-solution.md):
+//   SkyLight render_update produces composite_destination (WS-owned, SRC)
+//   → this helper sends src+dest IOSurface mach rights to the host XPC
+//   → host does a real Metal blit (surface_copy_serve in MTLSimDriverHost)
+//   → dest becomes the VNC framebuffer source (displayd-owned).
+// Uses a SEPARATE service name so the chroot-side macOS-platform host and
+// the outer iOS blur host can coexist without launchd name contention
+// (Q9 §XPC 双份部署: same-bootstrap registration would collide).
+static xpc_connection_t gSurfaceCopyXpc = NULL;
+static xpc_connection_t macws_surface_copy_xpc(void) {
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        xpc_connection_t (*createMach)(const char *, dispatch_queue_t, uint64_t) =
+            dlsym(RTLD_DEFAULT, "xpc_connection_create_mach_service");
+        if (!createMach) return;
+        gSurfaceCopyXpc = createMach("com.macwsguide.surface-copy", NULL, 0);
+        if (!gSurfaceCopyXpc) return;
+        xpc_connection_set_event_handler(gSurfaceCopyXpc, ^(xpc_object_t event) { (void)event; });
+        xpc_connection_resume(gSurfaceCopyXpc);
+        fprintf(stderr, "#### surface-copy-xpc: opened com.macwsguide.surface-copy\n");
+    });
+    return gSurfaceCopyXpc;
+}
+
+// Synchronous copy. MACWS_SURFACE_COPY=1 gates the call so WS can't hang on
+// a missing listener (same discipline as MACWS_BLUR_XPC).
+static BOOL macws_surface_copy_forward(IOSurfaceRef src, IOSurfaceRef dst) {
+    if (!getenv("MACWS_SURFACE_COPY")) return NO;
+    xpc_connection_t conn = macws_surface_copy_xpc();
+    if (!conn || !src || !dst) return NO;
+    mach_port_t srcPort = IOSurfaceCreateMachPort(src);
+    mach_port_t dstPort = IOSurfaceCreateMachPort(dst);
+    if (srcPort == MACH_PORT_NULL || dstPort == MACH_PORT_NULL) {
+        if (srcPort != MACH_PORT_NULL) mach_port_deallocate(mach_task_self(), srcPort);
+        if (dstPort != MACH_PORT_NULL) mach_port_deallocate(mach_task_self(), dstPort);
+        return NO;
+    }
+    xpc_object_t req = xpc_dictionary_create(NULL, NULL, 0);
+    xpc_dictionary_set_string(req, "op", "surface_copy");
+    xpc_dictionary_set_mach_send(req, "source_port", srcPort);
+    xpc_dictionary_set_mach_send(req, "dest_port", dstPort);
+    xpc_dictionary_set_uint64(req, "width", IOSurfaceGetWidth(src));
+    xpc_dictionary_set_uint64(req, "height", IOSurfaceGetHeight(src));
+    xpc_object_t reply = xpc_connection_send_message_with_reply_sync(conn, req);
+    BOOL ok = NO;
+    if (reply && xpc_get_type(reply) == XPC_TYPE_DICTIONARY) {
+        const char *r = xpc_dictionary_get_string(reply, "result");
+        ok = r && strcmp(r, "ok") == 0;
+        static int copyTrace = -1;
+        if (copyTrace < 0) copyTrace = getenv("MACWS_SURFACE_COPY_TRACE") ? 1 : 0;
+        if (copyTrace) fprintf(stderr, "#### surface-copy reply: %s\n", r ?: "(none)");
+    }
+    if (srcPort != MACH_PORT_NULL) mach_port_deallocate(mach_task_self(), srcPort);
+    if (dstPort != MACH_PORT_NULL) mach_port_deallocate(mach_task_self(), dstPort);
+    return ok;
+}
+// ─── end Q9 surface_copy client ───
+
 // Cached connection so we don't reconnect every frame.
 static xpc_connection_t gBlurXpc = NULL;
 static xpc_connection_t macws_blur_xpc(void) {

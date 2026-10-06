@@ -3,7 +3,12 @@
 @import Metal;
 @import MetalPerformanceShaders;
 @import IOSurface;
+#ifndef TARGET_OS_NANO // macosx:clang build: no jailbreak rootless prefix exists
 #include <rootless.h>
+#define MACWS_MTLHOST_MACOS_BUILD 0
+#else
+#define MACWS_MTLHOST_MACOS_BUILD 1
+#endif
 #include <xpc/xpc.h>
 
 @interface MTLTextureDescriptorInternal : MTLTextureDescriptor
@@ -182,7 +187,15 @@ int main(int argc, const char **argv, const char **envp) {
         char frameworkPath[PATH_MAX];
         void *debug_handle = dlopen("/var/mnt/rootfs/var/jb/usr/macOS/Frameworks/MetalSerializer.framework/MetalSerializer", RTLD_GLOBAL);
         NSCAssert(debug_handle, @"Failed to load MetalSerializer framework: %s", dlerror());
+#if MACWS_MTLHOST_MACOS_BUILD
+        // chroot-side macOS build: resolve through the chroot-absolute path.
+        // (Q7 §C:203 layout — this binary lives inside the chroot.)
+        snprintf(frameworkPath, sizeof(frameworkPath),
+                 "%s/MTLSimImplementation.framework/MTLSimImplementation",
+                 "/System/Library/PrivateFrameworks");
+#else
         snprintf(frameworkPath, sizeof(frameworkPath), "%s/MTLSimImplementation.framework/MTLSimImplementation", JBROOT_PATH("/usr/macOS/Frameworks"));
+#endif
         void *handle = dlopen(frameworkPath, RTLD_GLOBAL);
         NSCAssert(handle, @"Failed to load MTLSimImplementation framework: %s", dlerror());
         void (*init_with_xpc_connection)(xpc_connection_t, uint64_t, uint64_t) = dlsym(handle, "init_with_xpc_connection");
