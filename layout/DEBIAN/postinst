@@ -344,7 +344,32 @@ prepare_windowserver_runtime() {
         # An unknown UUID or malformed image is not safe to rewrite.
         return "$state"
     fi
-    ensure_chroot_application_signature "$target"
+    verifier="${WINDOWSERVER_PREPARER%/*}/verify_macho_code_pages.py"
+    signature_state=0
+    temporary="${target}.macws-signature-new.$$"
+    [ -f "$verifier" ] || return 1
+    /var/jb/usr/bin/python3 "$verifier" "$target" || signature_state=$?
+    if [ "$signature_state" -eq 1 ]; then
+        # Do not mistake a native entitlement marker for valid modified code pages.
+        [ -e "${target}.macws-signature-original" ] || cp -p "$target" "${target}.macws-signature-original" || return 1
+        source_hash=$(/var/jb/usr/bin/python3 -c 'import hashlib,sys;print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$target") || return 1
+        cp -p "$target" "$temporary" || return 1
+        /var/jb/usr/bin/ldid -Icom.apple.WindowServer -S"$ENTITLEMENTS" -M "$temporary" &&
+            /var/jb/usr/bin/python3 "$verifier" "$temporary" || {
+                rm -f "$temporary"
+                return 1
+            }
+        if [ "$source_hash" != "$(/var/jb/usr/bin/python3 -c 'import hashlib,sys;print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$target")" ]; then
+            echo 'ERROR: WindowServer changed during signing; leaving the current image intact.' >&2
+            rm -f "$temporary"
+            return 1
+        fi
+        mv -f "$temporary" "$target" || return 1
+    elif [ "$signature_state" -ne 0 ]; then
+        return "$signature_state"
+    fi
+    ensure_chroot_application_signature "$target" || return 1
+    /var/jb/usr/bin/python3 "$verifier" "$target"
 }
 
 ensure_interop_signature() {

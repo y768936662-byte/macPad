@@ -11857,37 +11857,11 @@ static id(*MTLCreateSimulatorDevice)(void);
 @interface MTLFakeDevice : _MTLDevice
 @end
 @implementation MTLFakeDevice
-- (void)macws_verify_host_metal_surface {
-    // Do not invent ABI shims: these selectors are implemented by the loaded
-    // MTLSimDevice instance and are forwarded by objc_msgSend normally.
-    // Keep a one-shot audit so a simulator framework update fails visibly.
-    static _Atomic int audited = 0;
-    if (atomic_exchange_explicit(&audited, 1, memory_order_acq_rel)) return;
-    SEL required[] = {
-        @selector(newCommandQueue), @selector(newTextureWithDescriptor:),
-        @selector(newBufferWithLength:options:), @selector(newDefaultLibrary),
-        @selector(newLibraryWithSource:options:error:),
-        @selector(newRenderPipelineStateWithDescriptor:error:),
-    };
-    for (size_t i = 0; i < sizeof(required) / sizeof(required[0]); i++) {
-        if (![self respondsToSelector:required[i]])
-            fprintf(stderr, "#### MACWS_METAL_HOST missing selector=%s class=%s\n",
-                sel_getName(required[i]), class_getName([self class]));
-    }
-}
 - (BOOL)initHooks {
-    // Codex AGX-desktop plan: the "MTLSimDevice class exists" shortcut is not
-    // proof this TU's hooks are installed. The class can be present (host
-    // MTLSimDriver already loaded) while our static MTLCreateSimulatorDevice
-    // symbol pointer is still unresolved, in which case initWithAcceleratorPort:
-    // would nil out and WS would fall back — NOT to local AGX (we never re-enable
-    // it here) but to the SW path that crash-loops on the '&'b38' FourCC. Only
-    // short-circuit when the symbol is resolved (set right after the dlsym below);
-    // otherwise run the full dlopen/dlsym/swizzle sequence exactly once.
-    if(%c(MTLSimDevice) && MTLCreateSimulatorDevice) {
-        return YES; // frameworks loaded + symbol resolved on a prior call
+    if(%c(MTLSimDevice)) {
+        return YES; // Already hooked
     }
-
+    
     void *handle = dlopen("@loader_path/../Frameworks/MetalSerializer.framework/MetalSerializer", RTLD_GLOBAL);
     if(!handle) {
         NSLog(@"#### debugbydcmmc Failed to load MetalSerializer framework: %s", dlerror());
@@ -12019,7 +11993,6 @@ static id(*MTLCreateSimulatorDevice)(void);
     // Class cls = NSClassFromString(@"MTLSimDevice");
     // NSLog(@"#### debugbydcmmc MTLSimDevice class %@", cls ? @"present" : @"missing");
     self = MTLCreateSimulatorDevice();
-    if (self) [self macws_verify_host_metal_surface];
     // NSLog(@"#### debugbydcmmc MTLCreateSimulatorDevice done");
     // CRITICAL: use OBJC_ASSOCIATION_RETAIN (not ASSIGN). With ASSIGN the
     // autoreleased @(port) NSNumber is deallocated after the autorelease pool
@@ -14129,23 +14102,6 @@ static void macws_install_quartzcore_update_image(
 static void install_agx_init_redirect(Class agx);
 
 %hookf(Class, getMetalPluginClassForService, int service) {
-    // Codex AGX-desktop plan (2026-10-06): MACWS_METAL_HOST=1 (set ONLY on the
-    // WindowServer daemon plist) routes WS to the host MTLSim client device
-    // (MTLFakeDevice), bypassing local AGX dlopen + install_agx_init_redirect
-    // (the chroot setupCompiler path the iOS kernel rejects with
-    // kIOReturnNoBandwidth). Must run BEFORE the AGX branch below.
-    //
-    // MTLFakeDevice is compiled in the arm64 slice (its guard at L11855 is true
-    // when __arm64e__ is undefined, i.e. non-arm64e), and the chroot WS is
-    // single-arch arm64, so this is exactly the slice WS loads. On the arm64e
-    // on-device slice MTLFakeDevice is intentionally excluded (PAC rebase, see
-    // commit 7467630), so gate the reference with the SAME guard to keep that
-    // slice compiling.
-#if !defined(__arm64e__) || !defined(LIBMACHOOK_ON_DEVICE_BUILD)
-    if (macws_metal_host_mode_enabled()) {
-        return MTLFakeDevice.class;
-    }
-#endif
     // Native AGX is the default with or without an environment setting:
     // both slices return the real AGX device class unless explicitly disabled.
     // dlopen the AGXMetal13_3 bundle on demand so its ObjC classes register,

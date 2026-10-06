@@ -516,7 +516,31 @@ prepare_windowserver_runtime() {
     elif [ "$state" -ne 0 ]; then
         return "$state"
     fi
-    sign_and_trustcache "$target"
+    local verifier="${WINDOWSERVER_PREPARER%/*}/verify_macho_code_pages.py"
+    local signature_state=0 temporary="${target}.macws-signature-new.$$" source_hash=""
+    [ -f "$verifier" ] || return 1
+    /var/jb/usr/bin/python3 "$verifier" "$target" || signature_state=$?
+    if [ "$signature_state" -eq 1 ]; then
+        # Header conversion invalidates page zero even when the old CDHash is trusted.
+        [ -e "${target}.macws-signature-original" ] || cp -p "$target" "${target}.macws-signature-original" || return 1
+        source_hash=$(/var/jb/usr/bin/python3 -c 'import hashlib,sys;print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$target") || return 1
+        cp -p "$target" "$temporary" || return 1
+        ldid -Icom.apple.WindowServer -S"$ENT" -M "$temporary" &&
+            /var/jb/usr/bin/python3 "$verifier" "$temporary" || {
+                rm -f "$temporary"
+                return 1
+            }
+        if [ "$source_hash" != "$(/var/jb/usr/bin/python3 -c 'import hashlib,sys;print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$target")" ]; then
+            echo '[ERROR] WindowServer changed during signing; leaving the current image intact' >&2
+            rm -f "$temporary"
+            return 1
+        fi
+        mv -f "$temporary" "$target" || return 1
+    elif [ "$signature_state" -ne 0 ]; then
+        return "$signature_state"
+    fi
+    sign_and_trustcache "$target" || return 1
+    /var/jb/usr/bin/python3 "$verifier" "$target"
 }
 
 # iPadOS rejects the stock Ventura CT policy on these early audio images before

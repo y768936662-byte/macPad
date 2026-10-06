@@ -41,6 +41,17 @@
 
 set -u
 
+# zsh/bash 双兼容的"本脚本所在目录"。设备 procursus 生成 launchd job 拉起 WS 时
+# 走 zsh，而 zsh 不支持 BASH_SOURCE[0]（数组切片）→ 原 "${BASH_SOURCE[0]%/*}" 在
+# zsh 下报 Bad substitution（2026-10-06 实测：MACWS_METAL_HOST=1 起 GUI 时
+# macos_gui.sh:2010 Bad substitution，WindowServer 未被拉起）。直接
+# `bash|zsh <path>` 调用时 $0=脚本路径；被 source 时退化为 $PWD。
+if [ -n "${0:-}" ] && [ -d "$(dirname -- "$0")" ]; then
+    MACOS_GUI_DIR="$(dirname -- "$0")"
+else
+    MACOS_GUI_DIR="$PWD"
+fi
+
 # ─── Paths ──────────────────────────────────────────────────────────────────
 ROOTFS=/var/mnt/rootfs
 MACOS_DAEMONS=/var/jb/usr/macOS/LaunchDaemons  # WindowServer + required macOS services
@@ -2004,7 +2015,7 @@ prepare_metal_library_target_cache() {
     # compatibility is always enabled. The helper checks actual chroot roots,
     # so omitted live clients defer safely instead of losing an mmap-backed
     # cache. A normal cold startup migrates once before any GUI client starts.
-    /var/jb/usr/bin/python3 "${BASH_SOURCE[0]%/*}/macws_metal_cache_migration.py" \
+    /var/jb/usr/bin/python3 "$MACOS_GUI_DIR/macws_metal_cache_migration.py" \
         --rootfs "$ROOTFS" --defer-if-running
 }
 
@@ -2013,7 +2024,7 @@ prepare_production_boot_jobs() {
     # Historical diagnostics/optional-app jobs there are not covered by the
     # generated GUI-job preflight. Archive only recognized original jobs;
     # never unload a live application while auditing an upgrade.
-    /var/jb/usr/bin/python3 "${BASH_SOURCE[0]%/*}/macws_retire_legacy_boot_jobs.py"
+    /var/jb/usr/bin/python3 "$MACOS_GUI_DIR/macws_retire_legacy_boot_jobs.py"
 }
 
 write_plists() {
@@ -2022,7 +2033,7 @@ write_plists() {
         vnc_listen_scope="        <string>-localhost</string>"
     fi
     mkdir -p "$GUI_LAUNCHD_DIR"
-    source "${BASH_SOURCE[0]%/*}/macws_diagnostic_flags.sh" || return 1
+    source "$MACOS_GUI_DIR/macws_diagnostic_flags.sh" || return 1
 
     # VNC is an explicit session transport choice, not a feature sentinel.
     # Rewrite the job's own environment before launchctl loads it so both
@@ -3069,7 +3080,7 @@ stop_watchdogs() {
 diagnostic_flag_paths() {
     # Generated from the authoritative manifest so new diagnostics cannot be
     # silently omitted from production cleanup or the preflight check.
-    source "${BASH_SOURCE[0]%/*}/macws_diagnostic_flags.sh" || return 1
+    source "$MACOS_GUI_DIR/macws_diagnostic_flags.sh" || return 1
     macws_diagnostic_flag_paths
 }
 
@@ -3320,7 +3331,7 @@ production_preflight() {
     # No production launch job may enable allocator/debug flight recorders via
     # environment.  Functional compatibility variables are documented and
     # intentionally excluded from this deny-list.
-    source "${BASH_SOURCE[0]%/*}/macws_diagnostic_flags.sh" || return 1
+    source "$MACOS_GUI_DIR/macws_diagnostic_flags.sh" || return 1
     local diagnostic_environment_pattern
     diagnostic_environment_pattern=$(macws_diagnostic_environment_pattern)
     for plist in "$WINDOWSERVER_PLIST" "$VNC_PLIST" "$TERM_PLIST" \

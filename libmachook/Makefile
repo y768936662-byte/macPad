@@ -57,7 +57,14 @@ endif
 # chained fixups, so it must NOT receive this flag -> keep it on-device only.
 ifeq ($(LIBMACHOOK_ON_DEVICE_BUILD),1)
 libmachook_CFLAGS += -DLIBMACHOOK_ON_DEVICE_BUILD=1
-libmachook_LDFLAGS += -Wl,-fixup_chains
+# The on-device Theos toolchain otherwise records its staging absolute path
+# (/var/jb/usr/lib/libsubstrate.dylib) in LC_LOAD_DYLIB.  That path is outside
+# the macOS chroot and dyld reports errno=62 before libmachook's constructor.
+# Keep the dependency relocatable, matching the known-good f26b05a1 artifact;
+# the postinst/runtime scripts install this framework in the chroot framework
+# tree which is already on the process @rpath search path.
+libmachook_LDFLAGS += -Wl,-fixup_chains \
+  -Wl,-change,/var/jb/usr/lib/libsubstrate.dylib,@rpath/CydiaSubstrate.framework/CydiaSubstrate
 endif
 
 libmachook_INSTALL_PATH = /usr/macOS/lib

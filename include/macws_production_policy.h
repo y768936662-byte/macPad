@@ -14,4 +14,8 @@ static inline bool MacWSProductionDefaultEnabled(const char *value) {
 // across allocation, texture, compiler and library-routing translation units.
 bool macws_agx_native_enabled(void);
 
+// Codex AGX-desktop plan: host MTLSim routing switch. Defined by mac_hooks.m;
+// when true, WS must skip native AGX entirely (see macws_agx_native_enabled).
+bool macws_metal_host_mode_enabled(void);
+
 #endif

@@ -3,6 +3,7 @@
 #import <IOSurface/IOSurface.h>
 
 #include <limits.h>
+#include <fcntl.h>
 #include <mach/bootstrap.h>
 #include <mach/mach.h>
 #include <mach/mach_time.h>
@@ -22,6 +23,19 @@ static dispatch_queue_t ReceiverQueue;
 static _Atomic bool FinalCompositeAccepted;
 static _Atomic uint64_t ReplayRequestGeneration;
 static _Atomic uint64_t ReplayMinimumCompletionTime;
+
+static void MarkWindowServerGraphicsReady(uint64_t frame) {
+    dprintf(STDERR_FILENO,
+        "WS_COMPOSITE_PRESENTED frame=%llu source=WindowServer\n",
+        (unsigned long long)frame);
+    int fd = open("/private/tmp/macws_graphics_ready",
+                  O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (fd >= 0) {
+        static const char marker[] = "ready\n";
+        (void)write(fd, marker, sizeof(marker) - 1);
+        (void)close(fd);
+    }
+}
 
 static void ReceiverLog(NSString *format, ...) NS_FORMAT_FUNCTION(1, 2);
 static void ReceiverLog(NSString *format, ...) {
@@ -168,6 +182,7 @@ static void ReceiveAvailableMessages(void) {
         if (surfaceValid && fresh) {
             atomic_store_explicit(&FinalCompositeAccepted, true,
                                   memory_order_release);
+            MarkWindowServerGraphicsReady(record.sequence);
             if (AcceptedHandler) AcceptedHandler(surface, record);
         } else {
             uint32_t witness = NextRejectWitness();

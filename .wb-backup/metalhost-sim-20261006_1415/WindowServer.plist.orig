@@ -11,15 +11,8 @@
 		<key>CA_VSYNC_OFF</key>
 		<string>1</string>
 		<key>MACWS_AGX_NATIVE</key>
-		<string>0</string>
+		<string>1</string>
 		<key>MACWS_AGX_REGISTER_CLASSES</key>
-		<string>0</string>
-		<!-- Codex AGX-desktop plan (2026-10-06): route WS to the host MTLSim
-		     client device, bypassing local AGX setupCompiler (kIOReturnNoBandwidth
-		     on this iOS kernel). SIM 降级验收 round: enable host routing +
-		     explicitly drop native AGX. Revert both when a working native/sim
-		     blend or kernel AGX-bandwidth patch lands. -->
-		<key>MACWS_METAL_HOST</key>
 		<string>1</string>
 	</dict>
 	<key>Label</key>

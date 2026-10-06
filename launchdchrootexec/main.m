@@ -101,15 +101,31 @@ int main(int argc, char *argv[], char *envp[]) {
     // runtime witnesses), so require both facts before requesting the system
     // service launch contract.
     const char *xpcServiceName = getenv("XPC_SERVICE_NAME");
-    if(getppid() == 1 && xpcServiceName && *xpcServiceName) {
+    // 2026-10-03: On the iPad14,3 / iPadOS 16.5.1 combo, macOS system-service
+    // jobs such as SkyLight's WindowServer carry an AMFI "system-service launch
+    // constraint". Requesting CS_LAUNCH_TYPE_SYSTEM_SERVICE for them makes AMFI
+    // SIGKILL the process before dyld even enters (dmesg: "Launch Constraint
+    // Violation (enforcing) c[8]p[1]m[5]e[5], launch type 1"). We therefore let a
+    // specific launchd job opt out of the SYSTEM_SERVICE request via the env var
+    // MACWS_NO_SYSTEM_SERVICE=1 (set in its plist), so it starts as an ordinary
+    // per-CDHash-trusted launch instead. This is a narrow launch-contract change,
+    // NOT a global AMFI bypass. Only getenv is used (no new lazy-bound symbol).
+    const char *noSystemService = getenv("MACWS_NO_SYSTEM_SERVICE");
+    int skipSystemService = (noSystemService != NULL && *noSystemService != '\0');
+    if(!skipSystemService && getppid() == 1 && xpcServiceName && *xpcServiceName) {
         fprintf(stderr, "launchd service = %s\n", xpcServiceName);
         if(posix_spawnattr_set_launch_type_np(&attr, CS_LAUNCH_TYPE_SYSTEM_SERVICE) != 0) {
             perror("posix_spawnattr_set_launch_type_np");
             return 1;
         }
     } else if (getppid() == 1) {
-        fprintf(stderr,
-                "orphaned manual launch; preserving ordinary launch type\n");
+        if(skipSystemService) {
+            fprintf(stderr,
+                    "MACWS_NO_SYSTEM_SERVICE: preserving ordinary launch type (skip SYSTEM_SERVICE to dodge AMFI launch-constraint)\n");
+        } else {
+            fprintf(stderr,
+                    "orphaned manual launch; preserving ordinary launch type\n");
+        }
     }
     // if(posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETEXEC | POSIX_SPAWN_START_SUSPENDED) != 0) {
     // env-gated suspend: set MACWS_SUSPEND_AT_EXEC=1 (in WS plist

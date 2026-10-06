@@ -44,6 +44,22 @@ if "$system_mount" | grep -Fq " on $canonical_target (" ||
     exit 0
 fi
 
+# The kernel on rootless Dopamine refuses a true directory bind mount
+# (ENOTSUP) even under the jailbreak's unsandboxed root credential, so the
+# mount_bindfs helper degrades to a symlink that exposes the source at the
+# target path.  A symlink target is already "bound" in every functional sense
+# the caller needs: the chrooted process reads the proxy through it, and iOS
+# launchd starts the activation bundle at the same absolute path.  Accept it
+# here instead of falling through to the nonempty-directory guard, which only
+# reasons about a real bind mount.
+if [ -L "$target_dir" ]; then
+    [ -x "$target_dir/$proxy_relative" ] || {
+        echo "MacWS: symlink target does not expose the XPC proxy" >&2
+        exit 1
+    }
+    exit 0
+fi
+
 if [ -n "$(ls -A "$target_dir")" ]; then
     echo "MacWS: refusing to cover nonempty $target_dir with a bind mount" >&2
     exit 1

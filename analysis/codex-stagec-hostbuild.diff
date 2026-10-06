@@ -1,0 +1,9 @@
+diff --git a/MTLSimDriverHost/Makefile b/MTLSimDriverHost/Makefile
+index 1d0dfa2..e98146a 100644
+--- a/MTLSimDriverHost/Makefile
++++ b/MTLSimDriverHost/Makefile
+@@ -1,3 +1,4 @@
++TARGET := iphone:clang:latest:14.0
+ ARCHS = arm64
+ include ../config/production.mk
+ include $(THEOS)/makefiles/common.mk

@@ -44,9 +44,51 @@ static id<MTLDevice> gBlurDevice = nil;
 static id<MTLCommandQueue> gBlurQueue = nil;
 static dispatch_queue_t gBlurDQ = NULL;
 
+// Generic IOSurface copy endpoint used by the MACWS_METAL_HOST fallback.  MTL
+// objects stay process-local; only IOSurface mach send rights cross XPC.
+// Request: op="surface_copy", source_port, dest_port, width, height.
+// The host performs a real Metal blit and reports completion synchronously.
+static void surface_copy_serve(xpc_object_t event) {
+    mach_port_t srcPort = xpc_dictionary_copy_mach_send(event, "source_port");
+    mach_port_t dstPort = xpc_dictionary_copy_mach_send(event, "dest_port");
+    IOSurfaceRef src = IOSurfaceLookupFromMachPort(srcPort);
+    IOSurfaceRef dst = IOSurfaceLookupFromMachPort(dstPort);
+    const char *result = "ok";
+    if (!src || !dst) result = "no_iosurface";
+    if (src && dst) {
+        if (!gBlurDevice) {
+            gBlurDevice = MTLCreateSystemDefaultDevice();
+            if (gBlurDevice) gBlurQueue = [gBlurDevice newCommandQueue];
+        }
+        MTLTextureDescriptor *td = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:
+            MTLPixelFormatBGRA8Unorm width:IOSurfaceGetWidth(src)
+            height:IOSurfaceGetHeight(src) mipmapped:NO];
+        td.usage = MTLTextureUsageShaderRead | MTLTextureUsageShaderWrite;
+        id<MTLTexture> st = gBlurDevice ? [gBlurDevice newTextureWithDescriptor:td iosurface:src plane:0] : nil;
+        td.width = IOSurfaceGetWidth(dst); td.height = IOSurfaceGetHeight(dst);
+        id<MTLTexture> dt = gBlurDevice ? [gBlurDevice newTextureWithDescriptor:td iosurface:dst plane:0] : nil;
+        id<MTLCommandBuffer> cb = (st && dt && gBlurQueue) ? [gBlurQueue commandBuffer] : nil;
+        if (cb) {
+            id<MTLBlitCommandEncoder> blit = [cb blitCommandEncoder];
+            MTLSize size = MTLSizeMake(MIN(st.width, dt.width), MIN(st.height, dt.height), 1);
+            [blit copyFromTexture:st sourceSlice:0 sourceLevel:0 sourceOrigin:MTLOriginMake(0,0,0)
+                sourceSize:size toTexture:dt destinationSlice:0 destinationLevel:0 destinationOrigin:MTLOriginMake(0,0,0)];
+            [blit endEncoding]; [cb commit]; [cb waitUntilCompleted];
+            if (cb.status == MTLCommandBufferStatusError) result = "command_error";
+        } else result = gBlurDevice ? "texture_unavailable" : "no_device";
+    }
+    xpc_object_t reply = xpc_dictionary_create_reply(event);
+    xpc_connection_t peer = xpc_dictionary_get_remote_connection(event);
+    if (reply && peer) { xpc_dictionary_set_string(reply, "result", result); xpc_connection_send_message(peer, reply); }
+    if (src) CFRelease(src); if (dst) CFRelease(dst);
+    if (srcPort != MACH_PORT_NULL) mach_port_deallocate(mach_task_self(), srcPort);
+    if (dstPort != MACH_PORT_NULL) mach_port_deallocate(mach_task_self(), dstPort);
+}
+
 static void blur_serve(xpc_object_t event) {
     if (xpc_get_type(event) != XPC_TYPE_DICTIONARY) return;
     const char *op = xpc_dictionary_get_string(event, "op");
+    if (op && strcmp(op, "surface_copy") == 0) { surface_copy_serve(event); return; }
     if (!op || strcmp(op, "blur") != 0) return;
 
     mach_port_t srcPort = xpc_dictionary_copy_mach_send(event, "source_port");

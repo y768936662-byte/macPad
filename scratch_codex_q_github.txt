@@ -1,0 +1,10 @@
+[macPad GitHub 接入 · 你现在 workdir=macPad 仓库(能 git log/show) · 只读，≤30行]
+
+我在设备上用 origin/main(eada48e) 源码重编验证 ctor 修复，设备构建在跑。请对着仓库回答：
+1) `git log 21636be..origin/main --oneline`（44 commit，桌面/Dock/输入修复线）里，**哪一条(些)真正改了
+   ctor/os_variant 断言链路**（即 libsystem_initializer 里 os_variant_has_internal_diagnostics → _check_internal_content brk1
+   那条崩溃栈）？给 commit 范围。若 44 条里**没有一条动 os_variant/ctor**（os_variant_hooks.x 是否被改过？git log -p -- libmachook/os_variant_hooks.x），
+   明说"ctor 修复不在此线"，并告诉我 ctor 修复实际在哪（另一个分支/未推/共享缓存 patch 路线）。
+2) 我的验证源 eada48e 是正确目标吗？还是该用别的 ref？
+3) 若 ctor 修复不在 eada48e：给"不碰共享缓存、可落设备验证"的最小下一步（比如某个未推 commit/需我先合哪条线）。
+只读 git 历史即可，别改设备/工作区。

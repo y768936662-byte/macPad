@@ -133,6 +133,34 @@ python3 misc/macws_artifact_contract.py create \
     --source-snapshot "$SNAP"
 
 echo
+echo "==> [2b/5] build os_variant bypass shim (libmacws_osvariant)"
+echo "    Xcode ld64 -> chained fixups + macOS platform (the 026b63cb-proven link form)"
+echo "    tiny pure-C dylib: interposes os_variant_* + sysctl(kern.osvariant_status)"
+echo "    so a minimal DYLD_INSERT_LIBRARIES can pre-register __interpose before any"
+echo "    target's libSystem initializers -> avoids _check_internal_content brk-1."
+SHIM_SRC="$PROJECT_DIR/ci/macws_osvariant_fix.c"
+SHIM_FAT="$DIST/libmacws_osvariant.dylib"
+if [ -f "$SHIM_SRC" ]; then
+    if xcrun clang -dynamiclib "$SHIM_SRC" -o "$SHIM_FAT" \
+        -arch arm64 -arch arm64e -mmacosx-version-min=13.0 -O2 -Wall \
+        -Wl,-install_name,"/usr/local/lib/libmacws_osvariant.dylib"; then
+        lipo -thin arm64  "$SHIM_FAT" -output "$DIST/libmacws_osvariant_arm64.dylib"
+        lipo -thin arm64e "$SHIM_FAT" -output "$DIST/libmacws_osvariant_arm64e.dylib"
+        cp "$SHIM_SRC" "$DIST/macws_osvariant_fix.c"
+        sha256_of "$DIST/libmacws_osvariant_arm64e.dylib" > "$DIST/libmacws_osvariant_arm64e.sha256"
+        echo "    shim artifacts in dist/:"
+        ls -la "$DIST"/libmacws_osvariant* 2>/dev/null | sed 's/^/      /'
+        echo "    arm64e link-form check (expect __interpose + LC_DYLD_CHAINED_FIXUPS):"
+        otool -l "$DIST/libmacws_osvariant_arm64e.dylib" 2>/dev/null \
+            | awk '/__interpose/{print "      __interpose present"} /LC_DYLD_CHAINED_FIXUPS/{print "      LC_DYLD_CHAINED_FIXUPS present"} /LC_DYLD_INFO_ONLY/{print "      (classic) LC_DYLD_INFO_ONLY"}' | sort -u
+    else
+        echo "    WARN: shim build failed (non-fatal; MacWSWindowing pipeline unaffected)"
+    fi
+else
+    echo "    (shim source not found: $SHIM_SRC; skipped)"
+fi
+
+echo
 echo "==> [3/5] 导出 MacWSWindowing 三件套"
 cp "$BUILT" "$DIST/MacWSWindowing.dylib"
 sha256_of "$BUILT" > "$DIST/MacWSWindowing.sha256"

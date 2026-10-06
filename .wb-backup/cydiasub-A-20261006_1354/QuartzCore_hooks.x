@@ -1,4 +1,4 @@
-#include <CydiaSubstrate/CydiaSubstrate.h>
+@import CydiaSubstrate;
 @import Darwin;
 @import QuartzCore;
 #import "interpose.h"

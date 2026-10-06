@@ -1,5 +1,5 @@
 @import Darwin;
-#include <CydiaSubstrate/CydiaSubstrate.h>
+@import CydiaSubstrate;
 @import Foundation;
 @import MachO;
 

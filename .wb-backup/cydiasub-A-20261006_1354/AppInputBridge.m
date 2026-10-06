@@ -8,7 +8,7 @@
 
 @import Foundation;
 @import Darwin;
-#include <CydiaSubstrate/CydiaSubstrate.h>
+@import CydiaSubstrate;
 
 #import <objc/message.h>
 #import <objc/runtime.h>

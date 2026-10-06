@@ -1,7 +1,7 @@
 @import CoreServices;
 @import CoreGraphics;
 @import CoreImage;
-#include <CydiaSubstrate/CydiaSubstrate.h>
+@import CydiaSubstrate;
 @import Darwin;
 @import Foundation;
 @import MachO;
@@ -299,35 +299,12 @@ static bool macws_runtime_diagnostics_enabled(void) {
 // Native AGX and its driver-class registration are production defaults even
 // when the variables are absent. Only explicit zero selects a diagnostic
 // rollback; tracing remains independently disabled by default.
-// Codex AGX-desktop plan (2026-10-06): MACWS_METAL_HOST=1 (set ONLY on the
-// WindowServer daemon plist) routes WS to the host MTLSim client device
-// (MTLFakeDevice), bypassing local AGX setupCompiler which the iOS kernel
-// rejects with kIOReturnNoBandwidth. Cached at startup like the other
-// process-start switches; only the exact value "1" enables it.
-bool macws_metal_host_mode_enabled(void) {
-    static _Atomic int cached = -1;
-    int value = atomic_load_explicit(&cached, memory_order_acquire);
-    if (value < 0) {
-        const char *s = getenv("MACWS_METAL_HOST");
-        value = (s && strcmp(s, "1") == 0) ? 1 : 0;
-        atomic_store_explicit(&cached, value, memory_order_release);
-    }
-    return value != 0;
-}
-
 bool macws_agx_native_enabled(void) {
     static _Atomic int cached = -1;
     int value = atomic_load_explicit(&cached, memory_order_acquire);
     if (value < 0) {
-        // Metal-host SIM routing takes precedence: when the host device is
-        // selected, keep every native AGX hook off so the SIM path stays
-        // clean (Codex AGX-desktop plan, point 3).
-        if (macws_metal_host_mode_enabled()) {
-            value = 0;
-        } else {
-            const char *setting = getenv("MACWS_AGX_NATIVE");
-            value = MacWSProductionDefaultEnabled(setting);
-        }
+        const char *setting = getenv("MACWS_AGX_NATIVE");
+        value = MacWSProductionDefaultEnabled(setting);
         atomic_store_explicit(&cached, value, memory_order_release);
     }
     return value != 0;
@@ -337,16 +314,8 @@ static bool macws_agx_register_classes_enabled(void) {
     static _Atomic int cached = -1;
     int value = atomic_load_explicit(&cached, memory_order_acquire);
     if (value < 0) {
-        // Metal-host SIM routing takes precedence (Codex AGX-desktop plan):
-        // when WS is routed to the host MTLSim device we must NOT register the
-        // local native AGX classes either, or the chroot would still pull in
-        // AGXG13GFamilyDevice and hit setupCompiler -> NoBandwidth.
-        if (macws_metal_host_mode_enabled()) {
-            value = 0;
-        } else {
-            const char *setting = getenv("MACWS_AGX_REGISTER_CLASSES");
-            value = MacWSProductionDefaultEnabled(setting);
-        }
+        const char *setting = getenv("MACWS_AGX_REGISTER_CLASSES");
+        value = MacWSProductionDefaultEnabled(setting);
         atomic_store_explicit(&cached, value, memory_order_release);
     }
     return value != 0;
