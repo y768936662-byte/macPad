@@ -171,14 +171,21 @@ static void blur_serve(xpc_object_t event) {
 }
 
 static void install_blur_listener(void) {
-    gBlurDQ = dispatch_queue_create("com.macwsguide.blur", DISPATCH_QUEUE_SERIAL);
+#ifdef MACWS_MTLHOST_MACOS_BUILD
+    // Q9: chroot 侧用独立服务名，避免与外层 iOS 版抢 com.macwsguide.blur
+    // （同 bootstrap namespace 两个 listener 同名 → launchd 随机绑一个，冲突）
+    const char *svc = "com.macwsguide.surface-copy";
+#else
+    const char *svc = "com.macwsguide.blur";
+#endif
+    gBlurDQ = dispatch_queue_create(svc, DISPATCH_QUEUE_SERIAL);
     xpc_connection_t (*createMach)(const char *, dispatch_queue_t, uint64_t) =
         dlsym(RTLD_DEFAULT, "xpc_connection_create_mach_service");
     if (!createMach) {
         NSLog(@"#### blur-listener: xpc_connection_create_mach_service missing");
         return;
     }
-    xpc_connection_t l = createMach("com.macwsguide.blur", gBlurDQ, XPC_CONNECTION_MACH_SERVICE_LISTENER);
+    xpc_connection_t l = createMach(svc, gBlurDQ, XPC_CONNECTION_MACH_SERVICE_LISTENER);
     if (!l) {
         NSLog(@"#### blur-listener: createMach returned NULL");
         return;
@@ -191,7 +198,11 @@ static void install_blur_listener(void) {
         xpc_connection_resume((xpc_connection_t)peer);
     });
     xpc_connection_resume(l);
+#ifdef MACWS_MTLHOST_MACOS_BUILD
+    NSLog(@"#### surface-copy-listener: published com.macwsguide.surface-copy (chroot)");
+#else
     NSLog(@"#### blur-listener: published com.macwsguide.blur");
+#endif
 }
 
 // decompiled from MTLSimDriverHost.xpc with some modifications
